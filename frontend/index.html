@@ -4,34 +4,102 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Zenith</title>
-
-  <!-- Tipografía estilo victoriano -->
-  <link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,900;1,400&family=Courier+Prime:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="wrap" aria-labelledby="brand">
-    <h1 id="brand" class="brand">Zenith</h1>
 
-    <div class="search-wrap" aria-hidden="false">
+  <!-- Partículas canvas -->
+  <canvas id="canvas"></canvas>
+
+  <!-- Siluetas de Sherlock -->
+  <div class="silhouette silhouette-l" aria-hidden="true">
+    <svg width="55" height="140" viewBox="0 0 55 140" fill="currentColor">
+      <ellipse cx="27" cy="22" rx="9" ry="11"/>
+      <path d="M18 32 C14 50 12 75 14 105 L18 105 L20 72 L27 75 L34 72 L36 105 L40 105 C42 75 40 50 36 32 C33 29 21 29 18 32Z"/>
+      <path d="M18 32 C10 40 6 60 8 80 L14 78 C13 62 15 48 20 38Z" opacity=".7"/>
+      <path d="M36 32 C44 40 48 60 46 80 L40 78 C41 62 39 48 34 38Z" opacity=".7"/>
+      <rect x="18" y="6" width="18" height="12" rx="1"/>
+      <rect x="14" y="17" width="26" height="3" rx="1"/>
+      <path d="M36 35 C42 33 46 34 47 36 C46 38 44 38 42 37 L36 36Z"/>
+      <ellipse cx="47" cy="36" rx="2" ry="2.5"/>
+    </svg>
+  </div>
+  <div class="silhouette silhouette-r" aria-hidden="true">
+    <svg width="55" height="140" viewBox="0 0 55 140" fill="currentColor">
+      <ellipse cx="27" cy="22" rx="9" ry="11"/>
+      <path d="M18 32 C14 50 12 75 14 105 L18 105 L20 72 L27 75 L34 72 L36 105 L40 105 C42 75 40 50 36 32 C33 29 21 29 18 32Z"/>
+      <path d="M18 32 C10 40 6 60 8 80 L14 78 C13 62 15 48 20 38Z" opacity=".7"/>
+      <path d="M36 32 C44 40 48 60 46 80 L40 78 C41 62 39 48 34 38Z" opacity=".7"/>
+      <rect x="18" y="6" width="18" height="12" rx="1"/>
+      <rect x="14" y="17" width="26" height="3" rx="1"/>
+      <path d="M36 35 C42 33 46 34 47 36 C46 38 44 38 42 37 L36 36Z"/>
+      <ellipse cx="47" cy="36" rx="2" ry="2.5"/>
+    </svg>
+  </div>
+
+  <!-- Niebla -->
+  <div class="fog fog-a"></div>
+  <div class="fog fog-b"></div>
+  <div class="fog fog-c"></div>
+
+  <!-- Suelo -->
+  <div class="floor"></div>
+
+  <!-- Farolas -->
+  <div class="lamp lamp-l" aria-hidden="true">
+    <div class="lamp-head"><div class="lamp-bulb"></div><div class="lamp-beam"></div></div>
+    <div class="lamp-post"></div>
+  </div>
+  <div class="lamp lamp-r" aria-hidden="true">
+    <div class="lamp-head"><div class="lamp-bulb"></div><div class="lamp-beam"></div></div>
+    <div class="lamp-post"></div>
+  </div>
+
+  <!-- Esquinas decorativas -->
+  <svg class="corner c-tl" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+    <path d="M8 8 L55 8 M8 8 L8 55" stroke="currentColor" stroke-width="1.2"/>
+    <circle cx="8" cy="8" r="2.5" fill="currentColor"/>
+    <path d="M22 8 C22 22 8 22 8 36" stroke="currentColor" stroke-width=".8" fill="none"/>
+    <circle cx="38" cy="8" r="1.2" fill="currentColor" opacity=".5"/>
+    <circle cx="8" cy="38" r="1.2" fill="currentColor" opacity=".5"/>
+  </svg>
+  <svg class="corner c-tr" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+    <path d="M8 8 L55 8 M8 8 L8 55" stroke="currentColor" stroke-width="1.2"/>
+    <circle cx="8" cy="8" r="2.5" fill="currentColor"/>
+    <path d="M22 8 C22 22 8 22 8 36" stroke="currentColor" stroke-width=".8" fill="none"/>
+    <circle cx="38" cy="8" r="1.2" fill="currentColor" opacity=".5"/>
+    <circle cx="8" cy="38" r="1.2" fill="currentColor" opacity=".5"/>
+  </svg>
+  <svg class="corner c-bl" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+    <path d="M8 8 L55 8 M8 8 L8 55" stroke="currentColor" stroke-width="1.2"/>
+    <circle cx="8" cy="8" r="2.5" fill="currentColor"/>
+    <path d="M22 8 C22 22 8 22 8 36" stroke="currentColor" stroke-width=".8" fill="none"/>
+  </svg>
+  <svg class="corner c-br" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+    <path d="M8 8 L55 8 M8 8 L8 55" stroke="currentColor" stroke-width="1.2"/>
+    <circle cx="8" cy="8" r="2.5" fill="currentColor"/>
+    <path d="M22 8 C22 22 8 22 8 36" stroke="currentColor" stroke-width=".8" fill="none"/>
+  </svg>
+
+  <main class="wrap">
+    <h1 class="brand"><span>Z</span>enith</h1>
+    <div class="search-wrap">
       <label for="q" class="sr-only">Buscar</label>
-      <div class="search-control">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden>
-          <circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
-          <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+      <div class="search-box">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <circle cx="10.5" cy="10.5" r="5.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M20 20l-4.5-4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
-
-        <input id="q" type="search" autocomplete="off" placeholder="¿Qué misterio deseas revelar?" />
-
-        <button id="searchBtn" class="btn" aria-label="Buscar" type="button">
-          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden>
-            <circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
-            <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+        <input id="q" type="search" autocomplete="off" placeholder="What are you looking for…?" />
+        <button id="searchBtn" class="btn" type="button" aria-label="Buscar">
+          <span class="btn-txt">Search</span>
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden>
+            <path d="M4 10h12M12 6l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span class="ripple" aria-hidden="true"></span>
+          <span class="ripple-el" aria-hidden="true"></span>
         </button>
       </div>
-      <div class="hint" aria-hidden="true"></div>
     </div>
   </main>
 
