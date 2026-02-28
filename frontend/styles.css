@@ -1,0 +1,146 @@
+:root{
+  --paper-1:#f6f1e6; --paper-2:#efe6d6;
+  --accent:#c9a969; --ink:#3b2b1b; --muted:#7b5e2e;
+  --glass: rgba(255,255,255,0.82);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;color:var(--ink);
+  background:
+    radial-gradient(circle at 8% 12%, rgba(255,248,230,0.55), transparent 18%),
+    linear-gradient(180deg, var(--paper-2), var(--paper-1));
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+}
+
+.wrap{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:22px;
+  padding:28px;
+}
+
+/* Brand */
+.brand{
+  font-family: 'Libre Caslon Text', serif;
+  font-size:46px;
+  margin:0;
+  letter-spacing:1px;
+  color:var(--ink);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+  transform: translateY(-6px);
+}
+
+/* Search control */
+.search-wrap{width:100%;max-width:760px}
+.search-control{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.85));
+  border-radius:14px;
+  padding:12px 14px;
+  box-shadow: 0 10px 30px rgba(60,40,20,0.08);
+  border:1px solid rgba(201,169,105,0.12);
+  overflow:hidden;
+}
+
+/* magnifier icon at left */
+.search-control .icon{
+  width:22px; height:22px;
+  color:var(--muted);
+  flex-shrink:0;
+  opacity:0.95;
+}
+
+/* input */
+.search-control input{
+  flex:1;
+  border:0;
+  outline:none;
+  font-size:18px;
+  padding:10px 6px;
+  background:transparent;
+  color:var(--ink);
+}
+
+/* subtle light sweep on focus/hover */
+.search-control::after{
+  content:'';
+  position:absolute; left:-60%; top:0; bottom:0;
+  width:40%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+  transform: skewX(-18deg) translateX(-10%);
+  transition: transform 0.9s cubic-bezier(.2,.9,.3,1), opacity .6s;
+  opacity:0;
+  pointer-events:none;
+}
+.search-control:focus-within::after,
+.search-control:hover::after{
+  transform: skewX(-18deg) translateX(220%);
+  opacity:1;
+}
+
+/* search button */
+.btn{
+  position:relative;
+  width:48px; height:44px;
+  border-radius:10px;
+  border:1px solid rgba(201,169,105,0.14);
+  background: linear-gradient(180deg,#fff,#fffefc);
+  display:grid; place-items:center;
+  cursor:pointer;
+  color:var(--muted);
+  padding:0;
+  overflow:hidden;
+  box-shadow: 0 6px 14px rgba(60,40,20,0.06), inset 0 1px 0 rgba(255,255,255,0.6);
+}
+.btn:active{transform:translateY(1px)}
+
+/* ripple effect */
+.btn .ripple{
+  position:absolute;
+  width:12px;height:12px;
+  border-radius:999px;
+  background:rgba(201,169,105,0.18);
+  transform:scale(0);
+  opacity:0;
+  pointer-events:none;
+}
+.btn.ripple-animate .ripple{
+  animation: ripple 700ms cubic-bezier(.2,.7,0,1);
+}
+@keyframes ripple{
+  0%{transform:scale(0.2); opacity:0.8}
+  60%{transform:scale(8); opacity:0.28}
+  100%{transform:scale(12); opacity:0}
+}
+
+/* small glow on button when searching */
+.btn.searching{ box-shadow: 0 8px 30px rgba(201,169,105,0.18), inset 0 1px 0 rgba(255,255,255,0.7); color:var(--accent) }
+
+/* hint: small animated parchment border moving (decorative only) */
+.hint{
+  height:6px;
+  margin-top:10px;
+  border-radius:999px;
+  background: linear-gradient(90deg, rgba(201,169,105,0.12), rgba(201,169,105,0.28), rgba(201,169,105,0.12));
+  background-size:200% 100%;
+  animation: shimmer 3.6s linear infinite;
+  opacity:0.9;
+}
+@keyframes shimmer { from {background-position:0%} to {background-position:200%} }
+
+/* accessibility helper */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* responsive */
+@media (max-width:520px){
+  .brand{font-size:34px}
+  .search-control{padding:10px}
+  .search-control input{font-size:16px}
+  .btn{width:44px;height:40px}
+}

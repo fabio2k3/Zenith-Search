@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Zenith</title>
+
+  <!-- Tipografía estilo victoriano -->
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="wrap" aria-labelledby="brand">
+    <h1 id="brand" class="brand">Zenith</h1>
+
+    <div class="search-wrap" aria-hidden="false">
+      <label for="q" class="sr-only">Buscar</label>
+      <div class="search-control">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden>
+          <circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+          <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+        </svg>
+
+        <input id="q" type="search" autocomplete="off" placeholder="¿Qué misterio deseas revelar?" />
+
+        <button id="searchBtn" class="btn" aria-label="Buscar" type="button">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden>
+            <circle cx="11" cy="11" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+            <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+          </svg>
+          <span class="ripple" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="hint" aria-hidden="true"></div>
+    </div>
+  </main>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
