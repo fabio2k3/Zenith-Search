@@ -24,7 +24,7 @@ from datetime import datetime
 import requests
 
 # ========== CONFIG ==========
-TARGET_MB = 50
+TARGET_MB = 100
 TARGET_BYTES = TARGET_MB * 1024 * 1024
 DEST_DIR = Path("pdfs")
 DEST_DIR.mkdir(exist_ok=True)
