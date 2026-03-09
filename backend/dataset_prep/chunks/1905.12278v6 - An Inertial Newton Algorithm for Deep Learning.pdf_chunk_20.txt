@@ -1,0 +1,1 @@
+(NIPS), pages 4148–4158. Xu, P., Roosta, F., and Mahoney, M. W. (2020). Second-order optimization for non-convex machine learning: an empirical study. In Proceedings of the SIAM International Conference on Data Mining (SDM20), pages 199–207. Society for Industrial and Applied Mathematics. 28
