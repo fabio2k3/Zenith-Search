@@ -1,0 +1,302 @@
+entropy Article MEMe: An Accurate Maximum Entropy Method for Efficient Approximations in Large-Scale Machine Learning DiegoGranziol1,2,∗,‡,BinxinRu1,2,∗,‡,StefanZohren1,2,XiaowenDoing1,2,MichaelOsborne1,2and StephenRoberts1,2
+1 MachineLearningResearchGroup,UniversityofOxford,WaltonWellRd,OxfordOX26ED,UK; diego@robots.ox.ac.uk(D.G.);robin@robots.ox.ac.uk(B.R.);zohren@robots.ox.ac.uk(S.Z.); xdong@robots.ox.ac.uk(X.D.);mosb@robots.ox.ac.uk(M.O.);sjrob@robots.ox.ac.uk(S.R.)
+2 Oxford-ManInstituteofQuantitativeFinance,WaltonWellRd,OxfordOX26ED,UK
+* Correspondence:diego@robots.ox.ac.uk(D.G.);robin@robots.ox.ac.uk(B.R.)
+‡ Theseauthorscontributedequallytothiswork. Received:30April2019;Accepted:29May2019;Published:31May2019 Abstract: Efficientapproximationliesattheheartoflarge-scalemachinelearningproblems. Inthispaper, weproposeanovel,robustmaximumentropyalgorithm,whichiscapableofdealingwithhundreds ofmomentsandallowsforcomputationallyefficientapproximations. Weshowcasetheusefulnessof theproposedmethod,itsequivalencetoconstrainedBayesianvariationalinferenceanddemonstrateits superiorityoverexistingapproachesintwoapplications,namely,fastlogdeterminantestimationand information-theoreticBayesianoptimisation. Keywords: Maximumentropy;Logdeterminantestimation;Bayesianoptimisation
+1. Introduction Algorithmicscalabilityisanimportantcomponentofmodernmachinelearning. Makinghighquality inferenceonlarge,featurerichdatasetsunderaconstrainedcomputationalbudgetisarguablytheprimary goalofthelearningcommunity. This,however,comeswithsignificantchallenges. Ontheonehand,the exactcomputationoflinearalgebraicquantitiesmaybeprohibitivelyexpensive,suchasthatofthelog determinant. Ontheotherhand,ananalyticexpressionforthequantityofinterestmaynotexistatall, suchasthecasefortheentropyofaGaussianmixturemodel,andapproximatemethodsareoftenboth inefficient and inaccurate. These highlight the need for efficient approximations especially in solving large-scalemachinelearningproblems. Inthispaper,toaddressthischallenge,weproposeanovel,robustmaximumentropyalgorithm, stableforalargenumberofmoments,surpassingthelimitofpreviousmaximumentropyalgorithms[1–3]. Weshowthattheabilitytohandlemoremomentinformation, whichcanbecalculatedcheaplyeither analyticallyorwiththeuseofstochastictraceestimation,leadstosignificantlyenhancedperformance. We showcasetheeffectivenessoftheproposedalgorithmbyapplyingittologdeterminantestimation[4–6] andentropytermapproximationintheinformation-theoreticBayesianoptimisation[7–9]. Specifically, wereformulatethelogdeterminantestimationintoaneigenvaluespectralestimationproblemsothatwe canestimatethelogdeterminantofasymmetricpositivedefinitematrixviacomputingthemaximum entropyspectraldensityofitseigenvalues. Similarly,welearnthemaximumentropyspectraldensityfor theGaussianmixtureandthenapproximatetheentropyoftheGaussianmixtureviatheentropyofthe Entropy2019,21,551;doi:10.3390/e21010551 www.mdpi.com/journal/entropy
+9102 nuJ
+3
+]LM.tats[
+1v10110.6091:viXra
+Entropy2019,21,551 2of19 maximumentropyspectraldensity,whichprovidesananalyticupperbound. Furthermore,indeveloping ouralgorithm,weestablishequivalencebetweenmaximumentropymethodsandconstrainedBayesian variationalinference[10]. Themaincontributionsofthepaperareasfollows:
+• Weproposeamaximumentropyalgorithm,whichisstableandconsistentforhundredsofmoments, surpassingotheroff-the-shelfalgorithmswithalimitofasmallnumberofmoments. Basedonthis robustalgorithm,wedevelopanewMaximumEntropyMethod(MEMe)whichimprovesupon thescalabilityofexistingmachinelearningalgorithmsbyefficientlyapproximatingcomputational bottlenecksusingmaximumentropyandfastmomentestimationtechniques;
+• Weestablishthelinkbetweenmaximumentropymethodsandvariationalinferenceundermoment constraints,henceconnectingtheformertowell-knownBayesianapproximationtechniques;
+• We apply MEMe to the problem of estimating the log determinant, crucial to inference in determinental point processes [11], and to that of estimating the entropy of a Gaussian mixture, importanttostate-of-the-artinformation-theoreticBayesianoptimisationalgorithms.
+2. TheoreticalFramework Themethodofmaximumentropy,hereafterreferredtoasMaxEnt[12],isaprocedureforgenerating the most conservative estimate of a probability distribution with the given information and the most non-committalonewithregardtomissinginformation[13]. Intuitively,inaboundeddomain,themost conservativedistribution,i.e.,thedistributionofmaximumentropy,istheonethatassignsequalprobability toalltheaccessiblestates. Hence,themethodofmaximumentropycanbethoughtofaschoosingthe flattest,ormostequiprobabledistribution,satisfyingthegivenmomentconstraints. Todeterminethemaximallyentropicdensityq(x),wemaximisetheentropicfunctional
+(cid:90) m (cid:20)(cid:90) (cid:21) S=− q(x)logq(x)dx− ∑ α q(x)xidx−µ , (1) i i i=0 withrespecttoq(x),wherethesecondtermwithµ =E [xi]forsomedensity p(x)arethepowermoment i p constraintsonthedensityq(x),{α }arethecorrespondingLagrangemultipliers,andmisthenumberof i moments. ThefirstterminEquation(1)isreferredtoastheBoltzmann–Shannon–Gibbs(BSG)entropy, whichhasbeenappliedinmultiplefields,rangingfromcondensedmatterphysics[14]tofinance[15]. For the case of i ≤ 2, the Lagrange multipliers can be calculated analytically; for i ≥ 3, they must be determinednumerically. In this section, we first establish links between the method of MaxEnt and Bayesian variational inference. Wethendescribefastmomentestimationtechniques. Finally,wepresenttheproposedMaxEnt algorithm.
+2.1. MaximumEntropyasConstrainedBayesianVariationalInference The work of Bretthorst [16] makes the claim that the method of maximum entropy (MaxEnt) is fundamentallyatoddswithBayesianinference. Atthesametime,variationalinference[17]isawidely usedapproximationtechniquethatfallsunderthecategoryofBayesianlearning. Inthissection,weshow thatthemethodofmaximumrelativeentropy[18]isequivalenttoconstrainedvariationalinference,thus establishingthelinkbetweenMaxEntandBayesianapproximation.
+Entropy2019,21,551 3of19
+2.1.1. VariationalInference Variationalmethods[10,17]inmachinelearningposetheproblemofintractabledensityestimation fromtheapplicationofBayes’ruleasafunctionaloptimisationproblem: p(x|z)p(z) p(z|x) = ≈ q(z), (2) p(x) wherep(z)andp(z|x)representthepriorandposteriordistributionsoftherandomvariablez,respectively. Variationalinferencethereforeseekstofindq(z)asanapproximationoftheposterior p(z|x),whichhas thebenefitofbeingastrictboundtothetrueposterior.
+(cid:82) Typically, while the functional form of p(x|z) is known, calculating p(x) = p(x|z)p(z)dz is intractable. UsingJensen’sinequality,wecanshowthat: logp(x) ≥E [logp(x,z)]−E [logq(z)]. (3) q q Furthermore, the reverse Kullback-Leibler (KL) divergence between the posterior and the variational distribution,D (q|p),canbewrittenas: KL logp(x) =E [logp(x,z)]−E [logq(z)]+D (q|p). (4) q q KL Hence, maximising the evidence lower bound is equivalent to minimising the reverse KL divergence between pandq.
+2.1.2. MaxEntisequivalenttoConstrainedVariationalInference MinimisingthereverseKLdivergencebetweenourposteriorq(x)andourpriorq (x)asisdonein
+0 variationalinference,withrespecttoq(x):
+(cid:90) D (q|q ) = −H(q)− q(x)logq (x)dx, (5) KL 0 0 x∈D
+(cid:82) (cid:82) whereH(q)denotesthedifferentialentropyofthedensityq(x),suchthat q(x)dx =1and q(x)xidx =
+µ. BythetheoryofLagrangianduality,theconvexityoftheKLdivergence,andtheaffinenatureofthe i momentconstraints,wemaximisethedualform[19]ofEquation(5):
+(cid:90) m (cid:18)(cid:90) (cid:19)
+−H(q)− q(x)logq (x)dx− ∑ α q(x)xidx−µ (6)
+0 i i i=0 withrespecttoq(x)or,alternatively,weminimise
+(cid:90) m (cid:18)(cid:90) (cid:19) H(q)+ q(x)logq (x)dx+ ∑ α q(x)xidx−µ . (7)
+0 i i i=0 Inthefieldofinformationphysics,theminimisationofEquation(7)isknownasthemethodofrelative entropy[18].Itcanbederivedastheuniquefunctionalsatisfyingtheaxiomsoflocality,coordinateinvariance, sub-systeminvarianceandobjectivity. TherestrictiontoafunctionalisderivedfromconsideringthesetofalldistributionsQ = {q (x)} j compatiblewiththeconstraintsanddevisingatransitiverankingscheme(Transitiverankingmeansif A > B and B > C, then A > C.). Furthermore, it can be shown that Newton’s laws, non-relativistic quantummechanics,andBayes’rulecanallbederivedunderthisformalism[18]. Inthecaseofaflatprior,
+Entropy2019,21,551 4of19 wereducetothemethodofmaximumentropywithmomentconstraints[13]asq (x)isaconstant. Hence,
+0 MaxEntandconstrainedvariationalinferenceareequivalent.
+2.2. FastMomentEstimationTechniques AsshowninSection2.1,constrainedvariationalinferencerequirestheknowledgeofthemomentsof thedensitybeingapproximatedtomakeinference. Inthissection,wediscussfastmomentestimation techniquesforboththegeneralcaseandthecaseforwhichanalyticexpressionsexist.
+2.2.1. MomentsofaGaussianMixture In some problems, there exist analytic expressions which can be used to compute the moments, OnepopularexampleistheGaussiandistribution(andthemixtureofGaussians). Specifically,forthe one-dimensionalGaussian,wecanfindananalyticexpressionforthemoments:
+(cid:90) ∞ xme −(x 2 − σ µ 2 )2 dx = ∑ m ( √ 2σ)i+1 (cid:18) m (cid:19) µm−iζ i , (8)
+−∞ i=0 i whereµandσarethemeanandstandarddeviationoftheGaussian,respectively,and:
+√
+(cid:90) ∞
+(cid:40)(i−1)!!
+π , ieven,
+ζ = yie −y2 dy = 2i/2 (9) i
+−∞ [1/2(i−1)]!, iodd. where(i−1)!!denotesdoublefactorial. Hence,foramixtureofkGaussianswithmeanµ andstandard k deviationσ ,then-thmomentisanalytic: k
+∑ w ∑ m ( √ 2σ )i+1 (cid:18) m (cid:19) µm−iζ . (10) k k i k i k i=0 wherew istheweightofk−thGaussianinthemixture. k
+2.2.2. MomentsoftheEigenvalueSpectrumofaMatrix Stochastictraceestimationisaneffectivewayofcheaplyestimatingthemomentsoftheeigenvalue spectrum of a given matrix K ∈ Rn×n [20]. The essential idea is that we can estimate the non-central momentsofthespectrumbyusingmatrix-vectormultiplications. RecallthatforanymultivariaterandomvariablezwithmeanmandvarianceΣ,wehave: E(zTz) = mTm+Σ = m == = = 0, = Σ= == I I, (11) whereforthesecondequalitywehaveassumed(withoutlossofgenerality)thatzpossesseszeromean andunitvariance. Bythelinearityoftraceandexpectation,foranynumberofmomentsm ≥0wehave: n
+∑ λm =Tr(IKm) =E(zKmzT), (12) s s=1
+Entropy2019,21,551 5of19 where{λ }aretheeigenvaluesofK. Inpractice,weapproximatetheexpectationinEquation(12)witha s setofprobingvectorsandasimpleMonteCarloaverage,i.e.,fordrandomunitvectors{z }d : j j=1 E(zKmzT) ≈ 1 (cid:18) ∑ d z KmzT (cid:19) , (13) d j j j=1 wherewetaketheproductofthematrixKwiththevectorzT atotalofmtimesandupdatezT eachtime, j j so as to avoid the costly matrix multiplication with O(n3) complexity. This allows us to calculate the non-centralmomentexpectationsinO(dmn2)complexityfordensematrices,orO(dm×n )complexity nz forsparsematrices,whered×m (cid:28) nandn isthenumberofnon-zeroentriesinthematrix. Therandom nz vectorz canbedrawnfromanydistribution,suchasaGaussian. Theresultingstochastictraceestimation j algorithmisoutlinedinAlgorithm1. Algorithm1StochasticTraceEstimation[20]
+1: Input: MatrixK
+∈Rn×n,NumberofMomentsm,NumberofProbeVectorsd
+2: Output: MomentExpectationsµˆ i ,∀i ≤ m
+3: Initialise µˆ i =0∀i
+4: forj =1,...,ddo
+5: Initialisez j =rand(1,n)
+6: fori =1,...,m do
+7: zT = KzT j j
+8: µˆ i = µˆ i + d 1z j zT j
+9: endfor
+10: endfor
+2.3. TheProposedMaxEntAlgorithm Inthissection,wedevelopanalgorithmfordeterminingthemaximumrelativeentropydensitygiven momentconstraints. Undertheassumptionofaflatpriorinaboundeddomain,thisreducestoageneric MaxEntdensity,whichweuseinvariousexamples. Aswediscussedpreviously,inordertoobtaintheMaxEntdistribution,wemaximisethegeneric objectiveofEquation(1). Inpractice,weinsteadminimisethedualformofthisobjective[19],whichcan bewrittenasfollows:
+(cid:90) m m S(q,q ) = q (x)exp(−[1+ ∑ α xi])dx+ ∑ α µ. (14)
+0 0 i i i x∈D i=0 i=0 NoticethatthisdualobjectiveadmitsanalyticexpressionsforboththegradientandtheHessian:
+∂S(q,q
+0
+)
+= µ −
+(cid:90) q (x)xjexp(−[1+ ∑ m
+α xi])dx, (15) j 0 i
+∂α j x∈D i=0
+∂2S(q,q
+0
+)
+=
+(cid:90) q (x)xj+kexp(−[1+ ∑ m
+α xi])dx. (16)
+0 i
+∂α j ∂α k x∈D i=0
+Entropy2019,21,551 6of19 For a flat prior in a bounded domain, which we use as a prior for the spectral densities of large matricesandforGaussianmixturemodels,q (x)isaconstantthatcanbedroppedout. Withthenotation
+0 m q (x) =exp(−[1+ ∑ α xi]), (17)
+α i i=0 weobtaintheMaxEntalgorithminAlgorithm2. Theinput{µ }ofAlgorithm2areestimatedusingfastmomentestimationtechniques,asexplained i inSection2.2.2. Inourimplementation,weusePython’sSciPyNewton-conjugategradient(CG)algorithm tosolvetheminimisationinstep4(line6),havingfirstlycomputedthegradientwithinatolerancelevel of (cid:101) aswellastheHessian. TomaketheHessianbetterconditionedsoastoachieveconvergence, we symmetriseitandaddjitterofintensityη =10−8alongthediagonal. Weestimatethegivenintegralswith quadratureusingagridsizeof10−4. Empirically,weobservethatthealgorithmisnotoverlysensitiveto thesechoices. Inparticular,wefindthat,forwellconditionedproblems,theneedforjitterisobviatedand asmallergridsizeworksfine;inthecaseofworseconditioning,jitterhelpsimproveconvergenceandthe gridsizebecomesmoreimportant,whereasmallergridsizeleadstoacomputationallymoreintensive implementation. Algorithm2TheProposedMaxEntAlgorithm
+1: Input: Moments{µ i },ToleranceLevel(cid:101),JittervarianceinHessianη =10−8
+2: Output: Coefficients{α i }
+3: Initialiseα i =0
+4: Computegradient: g j = µ j − (cid:82) 0 1 q α (x)xjdx
+5: ComputeHessian: H jk = (cid:82) 0 1 q α (x)xj+kdx, H=1 2 (H+HT)+ηI
+6: Minimize (cid:82) 0 1 q α (x)dx+∑ i α i µ i usingConjugateGradientsuntil∀j: g j < (cid:101) Giventhatanypolynomialsumcanbewrittenas∑ α xi = ∑ β f (x),where f (x)denotesanother i i i i i i polynomialbasis,whetherwechoosetousepowermomentsinourconstraintsoranotherpolynomial basis,suchastheChebyshevorLegendrebasis,doesnotchangetheentropyorsolutionofourobjective. However, the performance of optimisers working on these different formulations may vary [21]. For simplicity,wehavekeptalltheformulasintermsofpowermoments. However,wefindvastlyimproved performanceandconditioningwhenweswitchtoorthogonalpolynomialbases(sothattheerrorsbetween momentestimationsareuncorrelated),asshowninSection3.2.2. WeimplementbothChebyshevand LegendremomentsinourLagrangianandfindsimilarperformanceforboth.
+3. Applications Weapplytheproposedalgorithmtotwoproblemsofinterest,namely,logdeterminantestimation and Bayesian optimisation. In both cases we demonstrate substantial speed up and improvement in performance.
+3.1. LogDeterminantEstimation Calculationofthelogdeterminantisacommonhindranceinmachinelearning,appearinginGaussian graphicalmodels[22],Gaussianprocesses[23],variationalinference[24],metricandkernellearning[25], Markovrandomfields[26]anddeterminantalpointprocesses[11]. Foralargepositivedefinitematrix K ∈Rn×n,thecanonicalsolutioninvolvestheCholeskydecompositionofK = LLT. Thelogdeterminant isthentrivialtocalculateaslogdet(K) =2∑n logL ,whereL istheii-thentryofL. Thiscomputation i=1 ii ii
+Entropy2019,21,551 7of19 invokesacomputationalcomplexityofO(n3)andstoragecomplexityofO(n2),whichbecomesprohibitive forlargen,i.e.,n >104.
+3.1.1. LogDeterminantEstimationasaSpectralEstimationProblemusingMaxEnt Any symmetric positive definite (PD) matrix K is diagonalisable by a unitary matrix U, i.e., K = UTDU,whereDisthediagonalmatrixofeigenvaluesofK. Hencewecanwritethelogdeterminantas: n logdet(K) =log ∏ λ = ∑ logλ = n E (logλ), (18) i i p i i=1 wherewehaveusedthecyclicityofthedeterminantand E (logλ) denotestheexpectationunderthe p spectralmeasure. Thelattercanbewrittenas: E (logλ) = (cid:90) λma p x (λ)logλdλ = (cid:90) λmax∑ n 1 δ(λ−λ )logλdλ, (19) p i
+λmin λmin i=1 n whereλ andλ correspondtothelargestandsmallesteigenvalues,respectively. max min GiventhatthematrixisPD,weknowthatλ >0andwecandividethematrixbyanupperbound min oftheeigenvalue,λ ≤ λ ,viatheGershgorincircletheorem[27]suchthat: max u logdet(K) = n E (logλ (cid:48))+nlogλ , (20) p u whereλ(cid:48) = λ/λ andλ = max(∑n |K |),i.e.,themaximumsumoftherowsoftheabsoluteofthe u u i j=1 ij matrixK. Hencewecancomfortablyworkwiththetransformedmeasure:
+(cid:90) λmax/λu p(λ (cid:48))logλ (cid:48) dλ (cid:48) =
+(cid:90) 1 p(λ (cid:48))logλ (cid:48) dλ (cid:48) , (21)
+λmin/λu 0 wherethespectraldensity p(λ(cid:48))is0outsideofitsboundsof[0,1]. Wethereforearriveatthefollowing maximumentropymethod(MEMe)forlogdeterminantestimationdetailedinAlgorithm3. Algorithm3MEMeforLogDeterminantEstimation
+1: Input:PDSymmetricMatrixK
+∈Rn×n,NumberofMomentsm,NumberofProbeVectorsd,Tolerance Level(cid:101)
+2: Output: LogDeterminantApproximationlogdet(K)
+3: λ u =max i (∑n j=1 |K ij |)
+4: B = K/λ u
+5: Computemoments,{µ i },viaStochasticTraceEstimation(Algorithm1)withinputs(B,m,d)
+6: Computecoefficients,{α i },viaMaxEnt(Algorithm2)withinputs({µ i },(cid:101))
+7: Computeq(λ) =exp[−(1+∑ i α i λi)]
+(cid:82)
+8: Estimatelogdet(K) ≈ n log(λ)q(λ)dλ+nlog(λ u )
+Entropy2019,21,551 8of19
+3.1.2. Experiments LogDeterminantEstimationforSyntheticKernelMatrix TospecificallycompareagainstcommonlyusedChebyshev[4]andLanczosapproximations[28] to the log determinant, and see how their accuracy degrades with worsening condition number, we generateatypicalsquaredexponentialkernelmatrix[23],K
+∈Rn×n,usingthePythonGPypackagewith
+6dimensionalGaussianinputswithavarietyofrealisticuniformlength-scales. Wethenaddnoiseof varianceη =10−8alongthediagonalofK. Weusem =30momentsandd =50Hutchinsonprobevectors[20]inMEMeforthelogdeterminant estimation,anddisplaytheabsoluterelativeestimationerrorfordifferentapproachesinTable1. Wesee that,forlowconditionnumbers,thebenefitofframingthelogdeterminantasanoptimisationproblemis marginal,whereasforlargeconditionnumbers,thebenefitbecomessubstantial,withordersofmagnitude betterresultsthancompetingmethods. Table1.RelativeestimationerrorforMEMe,Chebyshev,andLanczosapproaches,withvariouslength-scale landconditionnumberκonthesquaredexponentialkernelmatrixK∈R1000×1000.
+κ l MEMe Chebyshev Lanczos
+3×101 0.05 0.0014 0.0037 0.0024
+1.1×103 0.15 0.0522 0.0104 0.0024
+1.0×105 0.25 0.0387 0.0795 0.0072
+2.4×106 0.35 0.0263 0.2302 0.0196
+8.3×107 0.45 0.0284 0.3439 0.0502
+4.2×108 0.55 0.0256 0.4089 0.0646
+4.3×109 0.65 0.00048 0.5049 0.0838
+1.4×1010 0.75 0.0086 0.5049 0.1050
+4.2×1010 0.85 0.0177 0.5358 0.1199 LogDeterminantEstimationonRealData TheworkinGranziolandRoberts[29]hasshownthattheadditionofanextramomentconstraint cannotincreasetheentropyoftheMaxEntsolution. Fortheproblemoflogdeterminant,thissignifiesthat theentropyofthespectralapproximationshoulddecreasewiththeadditionofeverymomentconstraint. WeimplementtheMaxEntalgorithmproposedinBandyopadhyayetal.[2],whichwerefertoasOMxnt, inthesamemannerasappliedforlogdeterminantestimationinFitzsimonsetal.[30],andcompareit againsttheproposedMEMeapproach. Specifically,weshowresultsontheEcologydataset[31],with n =999,999,forwhichthetruelogdeterminantcanbecalculated. ForOMxnt,weseethataftertheinitial decrease,theerror(Figure1b)beginstoincreaseform >3momentsandtheentropy(Figure1a)increases atm =6andm =12moments. FortheproposedMEMealgorithm,theperformanceisvastlyimprovedin termsofestimationerror(Figure1d);furthermore,theerrorcontinuallydecreaseswithincreasingnumber ofmoments,andtheentropy(Figure1c)decreasessmoothly. Thisdemonstratesthesuperioritybothin termsofconsistencyandperformanceofournovelalgorithmoverestablishedexistingalternatives.
+3.2. BayesianOptimisation Bayesian Optimisation (BO) is a powerful tool to tackle global optimisation challenges. It is particularlyusefulwhentheobjectivefunctionisunknown,non-convexandveryexpensivetoevaluate
+[32], and has been successfully applied in a wide range of applications including automatic machine learning[33–36],robotics[37,38]andexperimentaldesign[39]. WhenapplyingBO,weneedtochoose
+Entropy2019,21,551 9of19
+6.91 0.08 Entropy Relative Error
+6.9 r o0.06 r y p6.89 r E o e0.04 r tn E
+6.88 v ita
+6.87 le R0.02
+6.86 0
+5 10 15 5 10 15 No. of Moments No. of Moments
+(a)OMxnt:EntropyvsMoments (b)OMxnt:RelativeErrorvsMoments
+-0.5 0.08 Entropy Relative Error
+-1 r o0.06 r y p-1.5 r E o e0.04 r tn E
+-2 v ita
+-2.5 le R0.02
+-3 0
+5 10 15 5 10 15 No. of Moments No. of Moments
+(c)MEMe:EntropyvsMoments (d)MEMe:RelativeErrorvsMoments Figure 1. Comparison of the Classical (OMxnt) and our novel (MEMe) MaxEnt algorithms in log determinantestimationonrealdata.Theentropyvalue(a)andestimationerror(b)ofOMxntareshownin thetoprow.ThoseoftheMEMeareshownin(c)and(d)inthebottomrow. a statistical prior to model the objective function and define an acquisition function which trades off exploration and exploitation to recommend the next query location [40]. The generic BO algorithm is presented in Algorithm 6 in Appendix B. In the literature, one of the most popular prior models is the Gaussian processes (GPs), and the most recent class of acquisition functions that demonstrate state-of-the-artempiricalperformanceistheinformation-theoreticones[7–9,41].
+3.2.1. MaxEntforInformation-TheoreticBayesianOptimisation Information-theoreticBOmethodsselectthenextquerypointthatmaximisesinformationgainabout theunknownglobaloptimiser/optimum. Despitetheirimpressiveperformance,thecomputationoftheir acquisitionfunctionsinvolvesanintractabletermofGaussianmixtureentropy, asshowninEquation
+(22),ifweperformafullyBayesiantreatmentfortheGPhyperparameters. Accurateapproximationof thisGaussianmixtureentropytermiscrucialfortheperformanceofinformation-theoreticBO,butcanbe difficultand/orexpensive. Inthispaper,weproposeanefficientapproximationoftheGaussianmixture entropybyusingMEMe,whichallowsforefficientcomputationoftheinformation-theoreticacquisition functions.
+Entropy2019,21,551 10of19 Asanconcreteexample,weconsidertheapplicationofMEMeforFastInformation-TheoreticBayesian Optimisation(FITBO)[9]asdescribedinAlgorithm5,whichisahighlypracticalinformation-basedBO methodproposedrecently. TheFITBOacquisitionfunctionhasthefollowingform:
+α(x|D ) = H (cid:104) 1 ∑ M p(y|I(j)) (cid:105) − 1 ∑ M H (cid:2) p(y|I(j)) (cid:3) , (22) t M M j j where p(y|I(j)) = p(y|D ,x,θ (j))isthepredictiveposteriordistributionforyconditionedontheobserved t dataD ,thetestlocationx,andahyperparametersampleθ (j) . Thefirstentropytermistheentropyofa t Gaussianmixture,where MisthenumberofGaussiancomponents. TheentropyofaGaussianmixturedoesnothaveaclosed-formsolutionandneedstobeapproximated. InFITBO,theauthorsapproximatethequantityusingnumericalquadratureandmomentmatching(This correspondstothemaximumentropysolutionfortwomomentconstraintsaswellasthenormalization constraint.). Inthispaper,wedevelopaneffectiveanalyticupperboundoftheGaussianmixtureentropy usingMEMe,whichisderivedfromthenon-negativerelativeentropybetweenthetruedensity p(x)and theMaxEntdistributionq(x)[29]: D (p||q) = −H(p)+H(q) ≥0, (23) KL hence H(p) ≤ H(q). (24) Noticethatq(x)sharesthesamemomentconstraintsas p(x);furthermore,theentropyoftheMaxEnt distributionq(x)canbederivedanalytically: m
+∑ H(q) =1+ α µ, (25) i i i=0 where{µ }arethemomentsofaGaussianmixture,whichcanbecomputedanalyticallyusingEquation i
+(10),and{α }aretheLagrangemultipliersthatcanbeobtainedbyapplyingAlgorithm2. Theoverall i algorithm for approximating the Gaussian mixture entropy is then summarised in Algorithm 4. In AppendixB.1,wealsoprovethatthemomentsoftheGaussianmixtureuniquelydetermineitsdensity, andtheboundbecomestighterwitheveryextramomentconstraint:inthem → ∞limit,theentropyofthe MaxEntdistributionconvergestothetrueGaussianmixtureentropy. Hence,theuseofamoment-based MaxEntapproximationcanbejustified[3]. Algorithm4MEMeforApproximatingGaussianMixtureEntropy
+1: Input: AunivariateGaussianmixtureGM= M 1 ∑ j MN(y;m j ,σ j 2)withmeanm j andvarianceσ j 2
+2: Output: H GM ≈ H (cid:2) M 1 ∑ j MN(y;m j ,σ j 2) (cid:3)
+3: ComputethemomentsofGM,{µ i },analyticallyusingEquation(10)
+4: ComputetheLagrangemultipliers,{α i },usingAlgorithm2
+5: H GM ≈ −(1+∑ i α i E[yi]) = −(1+∑ i α i µ i )
+Entropy2019,21,551 11of19 Algorithm5MEMeforFITBO
+1: Input: ObserveddataD t
+2: Output: Acquisitionfunctionα n (x|D t )
+(cid:110) (cid:111)
+3: Sample Mhyperparameters θ (j)
+4: forj =1,...,Mdo
+(cid:104) (cid:105)
+5: Approximatelycompute p(y|D t ,x,θ (j)) = N(y;m j ,K j )anditsentropyH p(y|D t ,x,θ (j))
+6: endfor
+7: ApproximateH (cid:2) M 1 ∑ j MN(y;m j ,K j ) (cid:3) withMEMefollowingAlgorithm4
+8: Computeα(x|D t )asinEquation(22)
+3.2.2. Experiments EntropyoftheGaussianMixtureinBayesianOptimisation WefirsttestadiversesetofmethodstoapproximatetheentropyoftwosetsofGaussianmixtures, whicharegeneratedusingFITBOwith200hyperparametersamplesand400hyperparametersampleson a2Dproblem. Specifically,wecomparethefollowingapproachesforentropyapproximation: MaxEnt methodsusing10and30powermoments(MEMe-10andMEMe-30),MaxEntmethodsusing10and30 Legendremoments(MEMeL-10andMEMeL-30),variationalupperbound(VUB)[42],methodproposed in[43]with2Taylorexpansionterms(Huber-2),MonteCarlowith100samples(MC-100),andsimple momentmatching(MM). Weevaluatetheperformanceintermsoftheapproximationerror,i.e.,therelativeerrorbetweenthe approximatedentropyvalueandthetrueentropyvalue,thelatterofwhichisestimatedviaexpensive numericalintegration. Theresultsofthemeanapproximationerrorsbyallmethodsover80different GaussianmixturesareshowninTable2(Theversionwiththestandarddeviationoferrorsispresentedas TableA1inAppendixB.2.) . WecanseeclearlythatallMEMeapproachesoutperformothermethodsin termsoftheapproximationerror. AmongtheMEMeapproaches,theuseofLegendremoments,which applyorthogonalLegendrepolynomialbases,outperformstheuseofsimplepowermoments. Table2.MeanfractionalerrorinapproximatingtheentropyofthemixtureofMGaussiansusingvarious methods. Methods M=200 M=400 MEMe-10 1.24×10−2 1.38×10−2 MEMe-30 1.13×10−2 1.06×10−2 MEMeL-10 1.01×10−2 0.85×10−2 MEMeL-30 0.50×10−2 0.36×10−2 VUB 22.0×10−2 29.1×10−2 Huber-2 24.7×10−2 35.5×10−2 MC-100 1.60×10−2 2.72×10−2 MM 2.78×10−2 3.22×10−2 The mean runtime taken by all approximation methods over 80 different Gaussian mixtures are showninTable3(TheversionwiththestandarddeviationispresentedasTableA2inAppendixB.2.). Toensureafaircomparison,allthemethodsareimplementedinMATLABandallthetimingtestsare performedona2.3GHzIntelCorei5processor. Asweexpect,themomentmatchingtechnique,which
+Entropy2019,21,551 12of19 enablesustoobtainananalyticapproximationfortheGaussianmixtureentropy,isthefastestmethod. MEMeapproachesaresignificantlyfasterthantherestofapproximationmethods. Thisdemonstratesthat MEMeapproachesarehighlyefficientintermsofbothapproximationaccuracyandcomputationalspeed. AmongalltheMEMeapproaches,wechoosetoapplyMaxEntwith10LegendremomentsintheBOfor thenextsetofexperiments,asitisabletoachievelowerapproximationerrorthanMaxEntwithhigher powermomentswhilepreservingthecomputationalbenefitofFITBO. Table3.MeanruntimeofapproximatingtheentropyofthemixtureofMGaussiansusingvariousmethods. Methods M=200 M=400 MEMe-10 1.38×10−2 1.48×10−2 MEMe-30 2.59×10−2 3.21×10−2 MEMeL-10 1.70×10−2 1.75×10−2 MEMeL-30 4.18×10−2 4.66×10−2 VUB 12.9×10−2 50.7×10−2 Huber-2 20.9×10−2 82.2×10−2 MC-100 10.6×10−2 40.1×10−2 MM 2.71×10−5 2.87×10−5 Information-TheoreticBayesianOptimisation WenowtesttheeffectivenessofMEMeforinformation-theoreticBO.Wefirstillustratetheentropy approximationperformanceofMEMeusinga1Dexample. InFigure2,thetopplotshowstheobjective function we want to optimise (red dash line) and the posterior distribution of our surrogate model
+(bluesolidlineandshadedarea). Thebottomplotshowstheacquisitionfunctionscomputedbasedon Equation(22)usingthesamesurrogatemodelbutthreedifferentmethodsforGaussianmixtureentropy approximation, i.e., expensive numerical quadrature or Quad (red solid line), MM (black dash line), and MEMe using 10 Legendre moments (green dash line). In BO, the next query location is obtained by maximising the acquisition function, therefore the location instead of the magnitude of the modes of the acquisition function matters most. We can see from the bottom plot that MEMeL-10 results in an approximation that well matches the true acquisition function obtained by Quad. As a result, MEMeL-10 manages to recommend the same next query location as Quad. In comparison, the loose upperboundoftheMMmethod,thoughsuccessfullycapturingthelocationsofthepeakvalues,failsto correctlypredicttheglobalmaximiserofthetrueacquisitionfunction. MMthereforerecommendsaquery locationthatisdifferentfromtheoptimalchoice. Aspreviouslymentioned,theacquisitionfunctionin information-theoreticBOrepresentstheinformationgainabouttheglobaloptimumbyqueryingatanew location. Thesub-optimalchoiceofthenextquerylocationthusimposesapenaltyontheoptimisation performanceasseeninFigure3.
+Entropy2019,21,551 13of19 Figure2.BayesianOptimisation(BO)ona1Dtoyexamplewithacquisitionfunctionscomputedbydifferent approximationmethods.Inthetopsubplot,thereddashlineistheunknownobjectivefunction,theblack crossesaretheobserveddatapoints,andthebluesolidlineandshadedareaaretheposteriormeanand variance,respectively,oftheGPsurrogatethatweusetomodelthelatentobjectivefunction.Thecoloured trianglesarethenextquerypointrecommendedbytheBOalgorithms,whichcorrespondtothemaximiser oftheacquisitionfunctionsinthebottomsubplot.Inthebottomplot,theredsolidline,blackdashline, andgreendottedlinearetheacquisitionfunctionscomputedbyQuad,MM,andMEMeusing10Legendre moments,respectively.
+0.6
+0.5
+0.4
+0.3
+0 10 20 30 40 50 No. of Function Evaluations RI
+01goL
+1.6 FITBO-Quad FITBO-MM FITBO-MEMeL-10
+1.2
+0.8
+0.4
+0 10 20 30 40 50 No. of Function Evaluations
+(a)Michalewicz-5D RI
+01goL FITBO-Quad FITBO-MM FITBO-MEMeL-10
+(b)Hartmann-6D Figure3.PerformanceofvariousversionsofFITBOon2benchmarktestproblems:(a)Michalewicz-5D function and (b) Hartmann-6D function. The immediate regret (IR) on the y-axis is expressed in the logarithmtothebase10. In the next set of experiments, we evaluate the optimisation performance of three versions of FITBO that use different approximation methods. Specifically, FITBO-Quad denotes the version that
+Entropy2019,21,551 14of19 usesexpensivenumericalquadraturetoapproximatetheentropyoftheGaussianmixture,FITBO-MM denotestheoneusingsimplemomentmatching,andFITBO-MEMeLdenotestheoneusingMEMewith
+10 Legendre moments. We test these BO algorithms on two challenging optimisation problems, i.e., the Michalewicz-5D function [44] and the Hartmann-6D function [45], and measure the optimisation performanceintermsoftheimmediateregret(IR):IR= |f∗− fˆ|,whichmeasurestheabsolutedifference between the true global minimum value f∗ and the best guess of the global minimum value fˆby the BOalgorithm. Theaverage(median)resultover10randominitialisationsforeachexperimentisshown inFigure3. ItisevidentthattheMEMeapproach(FITBO-MEMeL-10),whichbetterapproximatesthe Gaussian mixture entropy, leads to a superior performance of the BO algorithm compared to the BO algorithmusingsimplemomentmatchingtechnique(FITBO-MM).
+4. Conclusion Inthispaper,weestablishedtheequivalencebetweenthemethodofmaximumentropyandBayesian variational inference under moment constraints, and proposed a novel maximum entropy algorithm
+(MEMe)thatisstableandconsistentforalargenumberofmoments. WeapplyMEMeintwoapplications, i.e.,logdeterminantestimationandBayesianoptimisation,todemonstrateitseffectivenessandsuperiority overstate-of-the-artapproaches. Theproposedalgorithmcanfurtherbenefitawiderangeoflarge-scale machinelearningapplicationswhereefficientapproximationisofcrucialimportance. Author Contributions: Conceptualization, D.G.; formal analysis, investigation, methodology, software and writing–originaldraft,D.G.andB.R.;supervisionandwriting–reviewandediting,S.Z.,X.D.,M.O.andS.R. Funding:B.R.wouldliketothanktheOxfordClarendonFundandtheOxford-ManInstituteofQuantitativeFinance; D.G.,S.Z.andX.DwouldliketothanktheOxford-ManInstituteofQuantitativeFinanceforfinancialsupport;S.R. wouldliketothanktheUKRoyalAcademyofEngineeringandtheOxford-ManInstituteofQuantitativeFinance ConflictsofInterest:Theauthorsdeclarenoconflictofinterest. Abbreviations Thefollowingabbreviationsareusedinthismanuscript: MEMe Maximumentropymethod MaxEnt Maximumentropy PD Positivedefinite CG Conjugategradient OMxnt OldMaxEntalgorithmproposedbyBandyopadhyayetal.[2] BO Bayesianoptimisation GP Gaussianprocess FITBO Fastinformation-theoreticBayesianoptimisation GM Gaussianmixture VUB Variationalupperbound Huber MethodproposedbyHuberetal.[43]forestimatingtheGaussianmixtureentropy MC MonteCarlosampling MM Momentmatching Quad Numericalquadrature IR Immediateregret
+Entropy2019,21,551 15of19 AppendixA PolynomialApproximationstotheLogDeterminant Recentwork[4–6]hasconsideredincorporatingknowledgeofthenon-centralmoments(Alsousing stochastic trace estimation.) of a normalised eigenspectrum by replacing the logarithm with a finite polynomialexpansion,
+(cid:90) 1 (cid:90) 1 p(λ)log(λ)dλ = p(λ)log(1−(1−λ))dλ. (A1)
+0 0 Giventhatlog(λ)isnotanalyticatλ =0,itcanbeseenthat,foranydensitywithalargemassnearthe origin,averylargenumberofpolynomialexpansions,andthusmomentestimates,willberequiredto achieveagoodapproximation,irrespectiveofthechoiceofbasis. AppendixA.1TaylorApproximationsareUnsound InthecaseofaTaylorexpansion,Equation(A1)canbewrittenas,
+(cid:90) 1
+∑
+∞ (1−λ)i (cid:90) 1
+∑ m (1−λ)i
+− p(λ) ≈− p(λ) . (A2)
+0 i=1 i 0 i=1 i Theerrorinthisapproximationcanbewrittenasthedifferenceofthetwosums,
+∑
+∞ E p
+(1−λ)i
+− , (A3) i i=m+1 wherewehaveusedtheTaylorexpansionoflog(1−x)and E denotestheexpectationunderthespectral p measure. Webeginwithcompleteignoranceaboutthespectraldensity p(λ)(otherthanitsdomain[0,1]) andbysomeschemeafterseeingthefirstmnon-centralmomentestimatesweproposeasurrogatedensity q(λ). Theerrorinourapproximationcanbewrittenas,
+(cid:90) 1
+[p(λ)−q(λ)]log(λ)dλ
+0
+(cid:90) 1
+∑
+∞ (1−λ)i (A4)
+= −[p(λ)−q(λ)] dλ.
+0 i=1 i ForthiserrortobeequaltothatofourTaylorexpansion,Equation(A3),ourimplicitsurrogatedensity musthavethefirstmnon-centralmomentsof(1−λ)identicaltothetruespectraldensity p(λ)andall others0. For any PD matrix K, for which E (1−λ)i > 0, ∀i ≤ m, (We ignore the trivial case of a Dirac p distributionatλ =1,whichisofnopracticalinterest.) forEquation(A4)tobeequaltoEquation(A3),we musthave,
+(cid:90) 1
+∑
+∞ (1−λ)i q(λ) dλ =0. (A5)
+0 i=m+1 i Giventhat0≤ λ ≤1andthatwehaveremovedthetrivialcaseofthespectraldensity(andbyimplication itssurrogate)beingadeltafunctionatλ =1,thesumismanifestlypositiveandhenceq(λ) <0forsome
+λ,whichviolatesthedefinitionofadensity. AppendixB BayesianOptimisation ThegenericalgorithmforBayesianoptimisationcanbesummarisedinAlgorithm6.
+Entropy2019,21,551 16of19 Algorithm6BayesianOptimisation
+1: Input: Ablack-boxfunctiony,InitialobserveddataD 0
+2: Output: Thebestguessabouttheglobaloptimiserxˆ N
+3: forn =0,...,Ndo
+4: Selectx n+1 =argmax x∈X α n (x|D t )
+5: Queryyatx n+1 toobtainy n+1
+6: D n+1 ← D t ∪(x n+1 , f n+1 )
+7: Updatemodel p(y|x,D n+1 ) = GP(y;m(·),K(·,·))
+8: endfor
+9: xˆ N =argmax x∈X m N (x) AppendixB.1AreMomentsSufficienttoFullyDescribetheProblem? ItwasshowninBillingsley[46]that,foraprobabilitymeasureµhavingfinitemomentsofallorders
+(cid:82)∞
+α = xkµ(dx),ifthepowerseries∑ α /k!hasapositiveradiusofconvergence,thenµistheonly k −∞ k k probability measure with the moments {α }. Informally, a Gaussian has finite moments of all orders; i therefore,anyfinitecombinationofGaussiansmustnecessarilypossessfinitemomentsofallordershence theaboveconditionissatisfied. Weexplicitlyshowthisforthecaseofaone-dimensionalGaussianas follows. We take the location parameter as m and standard deviation as σ. It can be seen that the 2k-th i i momentoftheGaussianisgivenas: G =
+∑ 2k (cid:18) 2k (cid:19) m
+2(k−p)
+β
+−p
+, (A6)
+2k 2p i i
+2p=0 wherewemakeuseofthefactthatalloddcentralpowermomentsoftheGaussianare0. Henceforthe Gaussianmixturemodelwehave: GM =
+∑ N w
+∑ 2k (cid:18) 2k (cid:19) m
+2(k−p)
+β
+−p
+, (A7)
+2k i 2p i i i=1 2p=0 where{w}aretheweightsforthecomponentsthatsatisfy∑ w = 1and0 ≤ w ≤ 1. Noticethatµ is i i i i i upperboundedbyaquantitygreaterthan1andβ islowerboundedbyaquantitysmallerthan1. i Furthermore,thefollowingrelationshipholds: ∑2k (2k) < (k+1) (2k)! . Therefore,theexpressionin
+2p=0 2p (k!)2 Equation(A7)canbeupperboundedas:
+(2k)! GM < N(k+1) , (A8)
+2k (k!)2(µ2k β −k) max i whichissmallerthan(2k)!inthek → ∞limitbytakingthelogarithm: logN log(k+1) |logβ |
++ +logµ + i ≤logk. (A9) max
+2k 2k 2
+Entropy2019,21,551 17of19 AppendixB.2ExperimentalResultsonApproximatingtheGaussianMixtureEntropy The mean and standard deviation of the approximation error and the runtime taken by all approximation methods over 80 different Gaussian mixtures are shown in Table A1 and Table A2 respectively. TableA1.FractionalerrorinapproximatingtheentropyofGaussianmixturesusingvariousmethods. Methods M=200 M=400 MEMe-10 1.24×10−2 1.38×10−2
+(±4.12×10−2) (±5.46×10−2) MEMe-30 1.13×10−2 1.06×10−2
+(±3.68×10−2) (±4.47×10−2) MEMeL-10 1.01×10−2 0.85×10−2
+(±3.68×10−2) (±3.81×10−2) MEMeL-30 0.50×10−2 0.36×10−2
+(±2.05×10−2) (±1.62×10−2) Variational 22.0×10−2 29.1×10−2 UpperBound (±28.0×10−2) (±78.6×10−2) Huber-2 24.7×10−2 35.5×10−2
+(±46.1×10−2) (±130.4×10−2) MC-100 1.60×10−2 2.72×10−2
+(±3.80×10−2) (±11.9×10−2) Moment 2.78×10−2 3.22×10−2 Matching (±4.85×10−2) (±7.94×10−2) TableA2.RuntimeofapproximatingtheentropyofGaussianmixturesusingvariousmethods. Methods M=200 M=400 MEMe-10 1.38×10−2 1.48×10−2
+(±2.59×10−3) (±2.22×10−3) MEMe-30 2.59×10−2 3.21×10−2
+(±4.68×10−3) (±5.17×10−3) MEMeL-10 1.70×10−2 1.75×10−2
+(±3.00×10−3) (±3.17×10−3) MEMeL-30 4.18×10−2 4.66×10−2
+(±5.63×10−3) (±5.00×10−3) Variational 12.9×10−2 50.7×10−2 UpperBound (±8.22×10−3) (±10.4×10−3) Huber-2 20.9×10−2 82.2×10−2
+(±7.54×10−3) (±14.8×10−3) MC-100 10.6×10−2 40.1×10−2
+(±6.19×10−3) (±17.8×10−3) Moment 2.71×10−5 2.87×10−5 Matching (±1.16×10−4) (±1.19×10−4) References
+1. Granziol, D.; Roberts, S.J. Entropic determinants of massive matrices. In Proceedings of the 2017 IEEE InternationalConferenceonBigData,Boston,MA,USA,11–14December2017;pp.88–93.
+2. Bandyopadhyay, K.; Bhattacharya, A.K.; Biswas, P.; Drabold, D. Maximum entropy and the problem of moments:Astablealgorithm. Phys.Rev.E2005,71,057701.
+Entropy2019,21,551 18of19
+3. Mead,L.R.;Papanicolaou,N.Maximumentropyintheproblemofmoments. J.Math.Phys.1984,25,2404–2417.
+4. Han, I.; Malioutov, D.; Shin, J. Large-scale log-determinant computation through stochastic Chebyshev expansions. InProceedingsofthe32ndInternationalConferenceonInternationalConferenceonMachine Learning,Lille,France,6–11July2015;pp.908–917.
+5. Dong,K.;Eriksson,D.;Nickisch,H.;Bindel,D.;Wilson,A.G. ScalableLogDeterminantsforGaussianProcess KernelLearning. InProceedingsofthe31stConferenceonNeuralInformationProcessingSystems,Long Beach,CA,USA,4–9December2017;pp.6330–6340.
+6. Zhang,Y.;Leithead,W.E.ApproximateimplementationofthelogarithmofthematrixdeterminantinGaussian processregression. J.Stat.Comput.Simul.2007,77,329–348.
+7. Hernández-Lobato, J.M.; Hoffman, M.W.; Ghahramani, Z. Predictive entropy search for efficient global optimizationofblack-boxfunctions. InProceedingsofthe27stConferenceonNeuralInformationProcessing Systems,Montreal,QC,Canada,8–13December2014;pp.918–926.
+8. Wang, Z.; Jegelka, S. Max-value Entropy Search for Efficient Bayesian Optimization. arXiv 2017, doi:arXiv:1703.01968.
+9. Ru, B.; McLeod, M.; Granziol, D.; Osborne, M.A. Fast Information-theoretic Bayesian Optimisation. In Proceedingsofthe2018InternationalConferenceonMachineLearning,Stockholm,Sweden,10–15July2018; pp.4381–4389.
+10. Fox,C.W.;Roberts,S.J. AtutorialonvariationalBayesianinference. Artif.Intell.Rev.2012,38,85–95.
+11. Kulesza,A. DeterminantalPointProcessesforMachineLearning. Found.TrendsMach.Learn.2012,5,123–286.
+12. Pressé,S.;Ghosh,K.;Lee,J.;Dill,K.A. PrinciplesofMaximumEntropyandMaximumCaliberinStatistical Physics. Rev.Mod.Phys.2013,85,1115–1141.
+13. Jaynes,E.T. InformationTheoryandStatisticalMechanics. Phys.Rev.1957,106,620–630.
+14. Giffin, A.; Cafaro, C.; Ali, S.A. Application of the Maximum Relative Entropy method to the Physics of FerromagneticMaterials. Phys.AStat.Mech.Appl.2016,455,11–26.
+15. Neri,C.;Schneider,L. MaximumEntropyDistributionsinferredfromOptionPortfoliosonanAsset. Finance Stoch.2012,16,293–318.
+16. Bretthorst,G.L. ThemaximumentropymethodofmomentsandBayesianprobabilitytheory. AIPConf.Proc.
+2013,1553,3–15.
+17. Beal, M.J. Variational algorithms for approximate Bayesian inference. Master’s Thesis, University of London, London,UK,2003.
+18. Caticha,A.EntropicInferenceandtheFoundationsofPhysics(monographcommissionedbythe11thBrazilian MeetingonBayesianStatistics–EBEB-2012,2012.
+19. Boyd,S.P.;Vandenberghe,L. ConvexOptimization;CambridgeUniversityPress,Cambridge,UK,2009.
+20. Hutchinson,M.F. Astochasticestimatorofthetraceoftheinfluencematrixforlaplaciansmoothingsplines. Commun.Stat.Simul.Comput.1990,19,433–450.
+21. Skilling,J. Theeigenvaluesofmega-dimensionalmatrices.InMaximumEntropyandBayesianMethods;Springer, Berlin,Germany,1989;pp.455–466.
+22. Friedman,J.;Hastie,T.;Tibshirani,R.Sparseinversecovarianceestimationwiththegraphicallasso. Biostatistics
+2008,9,432–441.
+23. Rasmussen,C.E.;Williams,C.K. GaussianProcessesforMachineLearning; TheMITPress:Cambridge,MA,USA,
+2006,pp.715–719.
+24. MacKay,D.J. InformationTheory,InferenceandLearningAlgorithms;CambridgeUniversityPress:Cambridge, UK,2003.
+25. VanAelst,S.;Rousseeuw,P. Minimumvolumeellipsoid. WileyInterdiscip.Rev.Comput.Stat.2009,1,71–82.
+26. Wainwright, M.J.; Jordan, M.I. Log-determinantrelaxationforapproximateinferenceindiscreteMarkov randomfields. IEEETrans.SignalProcess.2006,54,2099–2109.
+27. Gershgorin, S.A. ÜberdieAbgrenzungderEigenwerteeinerMatrix. IzvestijaAkademiiNaukSSSRSerija Matematika1931,6,749–754.
+Entropy2019,21,551 19of19
+28. Ubaru,S.;Chen,J.;Saad,Y. FastEstimationoftr(f(A))viaStochasticLanczosQuadrature. SIAMJ.Matrix Anal.Appl.2016,38,1075–1099.
+29. Granziol,D.;Roberts,S. AnInformationandFieldTheoreticapproachtotheGrandCanonicalEnsemble.arXiv
+2017,[arXiv:1703.10099].
+30. Fitzsimons,J.;Granziol,D.;Cutajar,K.;Osborne,M.;Filippone,M.;Roberts,S. EntropicTraceEstimatesfor LogDeterminants.arXiv2017,[arXiv:1704.07223].
+31. Davis,T.A.;Hu,Y. TheUniversityofFloridasparsematrixcollection. ACMTrans.Math.Softw.2011,38,1.
+32. Hennig,P.;Osborne,M.A.;Girolami,M. Probabilisticnumericsanduncertaintyincomputations. Proc.R.Soc. A2015,471,20150142.
+33. Bergstra,J.S.;Bardenet,R.;Bengio,Y.;Kégl,B.Algorithmsforhyper-parameteroptimization. InProceedingsof the24thInternationalConferenceonNeuralInformationProcessingSystems,Granada,Spain,12–15December
+2011;pp.2546–2554.
+34. Snoek,J.;Larochelle,H.;Adams,R.P. Practicalbayesianoptimizationofmachinelearningalgorithms. In Proceedingsofthe25thInternationalConferenceonNeuralInformationProcessingSystems,LakeTahoe,NV, USA,3–6December2012;pp.2951–2959.
+35. Thornton,C.;Hutter,F.;Hoos,H.H.;Leyton-Brown,K. Auto-WEKA:Combinedselectionandhyperparameter optimizationofclassificationalgorithms. InProceedingsofthe19thACMSIGKDDInternationalConference onKnowledgeDiscoveryandDataMining,Chicago,IL,USA,11–14August2013;pp.847–855.
+36. Hoffman, M.; Shahriari, B.; Freitas, N. On correlation and budget constraints in model-based bandit optimization with application to automatic machine learning. In Proceedings of the 17th International ConferenceonArtificialIntelligenceandStatistics,Reykjavik,Iceland,22–24April2014;pp.365–374.
+37. Lizotte,D.J.;Wang,T.;Bowling,M.H.;Schuurmans,D. AutomaticGaitOptimizationwithGaussianProcess Regression. IJCAI2007,7,944–949.
+38. Martinez-Cantin,R.;deFreitas,N.;Doucet,A.;Castellanos,J.A. Activepolicylearningforrobotplanningand explorationunderuncertainty. RoboticsSci.Syst.2007,3,321–328.
+39. Azimi,J.;Jalali,A.;Fern,X. HybridbatchBayesianoptimization. arXiv2012,doi:arXiv:1202.5597.
+40. Brochu,E.;Cora,V.M.;deFreitas,N. AtutorialonBayesianoptimizationofexpensivecostfunctions,with applicationtoactiveusermodelingandhierarchicalreinforcementlearning. arXiv2010,doi:arXiv:1012.2599.
+41. Hennig,P.;Schuler,C.J. Entropysearchforinformation-efficientglobaloptimization. J.Mach.Learn.Res.2012,
+13,1809–1837.
+42. Hershey,J.R.;Olsen,P.A. ApproximatingtheKullbackLeiblerdivergencebetweenGaussianmixturemodels. InProceedingsoftheIEEEInternationalConferenceonAcoustics,SpeechandSignalProcessing,Honolulu,HI, USA,15–20April2007.
+43. Huber,M.F.;Bailey,T.;Durrant-Whyte,H.;Hanebeck,U.D. OnentropyapproximationforGaussianmixture randomvectors. InProceedingsoftheIEEEInternationalConferenceonMultisensorFusionandIntegration forIntelligentSystems,Seoul,SouthKorea,20–22August2008;pp.181–188.
+44. Molga,M.;Smutnicki,C. Testfunctionsforoptimizationneeds. Availableonline:http://www.zsd.ict.pwr. wroc.pl/files/docs/functions.pdf(availableonline30May2005).
+45. Dixon,L.C.W. Theglobaloptimizationproblem.Anintroduction. TowardGlob.Optim.1978,2,1–15.
+46. Billingsley,P. ProbabilityandMeasure;Wiley:Hoboken,NJ,USA,2012.
+(cid:13)c 2019bytheauthors. LicenseeMDPI,Basel,Switzerland. Thisarticleisanopenaccess articledistributedunderthetermsandconditionsoftheCreativeCommonsAttribution(CC BY)license(http://creativecommons.org/licenses/by/4.0/).

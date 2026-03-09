@@ -1,0 +1,2038 @@
+Federated Learning with Superquantile Aggregation for Heterogeneous Data Krishna Pillutla∗1 Yassine Laguel∗2 Jérôme Malick3 Zaid Harchaoui4
+1Google Research 2Rutgers University
+3CNRS 4University of Washington Abstract We present a federated learning framework that is designed to robustly deliver good predictive performance across individual clients with heterogeneous data. The proposed approach hinges upon a superquantile-based learning objective that captures the tail statistics of the error distribution over heterogeneous clients. We present a stochastic training algorithm that interleaves differentially private client filtering with federated averaging steps. We prove finite time convergence guarantees for the
+√ algorithm: O(1/ T) in the nonconvex case in T communication rounds and O(exp(−T/κ3/2)+κ/T) in the strongly convex case with local condition number κ. Experimental results on benchmark datasets for federated learning demonstrate that our approach is competitive with classical ones in terms of average error and outperforms them in terms of tail statistics of the error.
+1 Introduction Federated learning is a distributed machine learning framework where many clients (e.g. mobile devices) collaboratively train a model under the orchestration of a central server (e.g. service provider) while keeping the training data private and local to the client throughout the training process [67, 50]. It has found widespread adoption across industry [9, 75] for applications ranging from smart device apps [102, 42] to healthcare [11, 46]. A key feature of federated learning is the statistical heterogeneity, i.e., client data distributions are not identically distributed [50, 62]. In typical cross-device federated learning scenarios, each client corresponds to a user. The diversity in the data they generate reflects the diversity in their unique personal, cultural, regional, and geographical characteristics. This data heterogeneity in federated learning manifests itself as a train-test distributional shift. Indeed, the usual approach minimizes the prediction error of the model on average over the population of clients available for training [67] while at test time, the same model is deployed on individual clients. This approach can fail on clients whose data distribution is far from most of the population or who may have less data than most of the population. It is highly desirable, therefore, to have a federated learning method that can robustly deliver good predictive performance across a wide variety of natural distribution shifts posed by individual clients. We present in this paper a robust approach to federated learning that guarantees a minimum level of predictive performance to all clients, even in situations where the population is heterogeneous. The method we develop addresses these issues by minimizing a learning objective based on the notion of a superquantile [84, 87], a risk measure that captures the tail behavior of a random variable. Training models with a learning objective involving the superquantile raises challenges. The superquantile is a non-smooth functional with sophisticated properties. Furthermore, the superquantile function can be seen as a kind of nonlinear expectation that we would like to blend well with averaging mechanisms. We show how to address the former by leveraging the dual formulation and the latter by leveraging the tail-domain
+∗Theseauthorscontributedequallytothiswork.
+1
+2202 ceD
+6
+]GL.sc[
+2v92490.2112:viXra
+Trajectoriesofmodelparametersovertime Iteration
+→
+.marapledoM
+→ Initerationtoftraining Attesttime Server Server w0 w
+θ1 w θ2
++ Sec.Agg. w
+θ3 w
+θ4 selected clients
+θ1 θ2 θ3 θ4 testclientsselecttheirtailthresholdθ Figure 1: Schematic summary of the ∆-FL framework. Left: The server maintains multiple models w , one for
+θj each tail thresholdθ . Middle: During training, selected clients participate in training each model w . Individual j θj updates are securely aggregated to update the server model. Right: Each test user is allowed to select their tail threshold θ, and are served the corresponding model w .
+θ viewpoint. As a result, we can obtain an algorithm that can be implemented in a similar way to FedAvg [67] yet offers important benefits to heterogeneous populations. The approach we propose, ∆-FL, allows one to control higher percentiles of the distribution of errors over the heterogeneous population of clients. We show in the experiments that our approach is more efficient than a direct approach, simply seeking to minimize the worst error over the population of clients. Compared to FedAvg, ∆-FL delivers improved prediction to tail clients or data-poor clients. Our algorithm relies on differentially private quantile computation to filter out clients on which to run federated averaging steps. We present finite-time theoretical convergence guarantees for our algorithm when used to train additive models or deep networks and prove bounds on the privacy and utility of the algorithm.
+1.1 Contributions We make the following concrete contributions in this work. The ∆-FL Framework. The usual objective of federated learning, which we call the vanilla FL objective is n
+1 (cid:88) λ min F (w)+ w 2, (1) i w∈Rd n 2(cid:107) (cid:107) i=1 where F i
+(w)=Eξ∼qi [f(w;ξ)] is the expected loss on client i under its data distribution q i for i=1,...,n, and λ is a regularization parameter [67]. Minimizing the average loss can lead to poor performance on clients whose distribution p is far from the population training distribution p =(1/n) (cid:80)n q . Our goal is to train i=1 i improve the performance on such tail clients. To this end, we directly minimize the average loss across tail clients whose loss is above a certain tail threshold. We formalize this through the notion of a risk measure known as the superquantile, a tail summary statistic of random variables [84]. The (1 θ)-superquantile is defined for a continuous random variable Z and θ (0,1) as Sθ (Z)=E[Z Z >Q θ (Z − )], where Q θ (Z) is the (1 θ)-quantile of Z. A similar interpretation hol∈ds for discrete distributio|ns; the formal definition of the super−quantile for this case is given in Section 3.3. Instead of minimizing the average loss as in (1), the proposed framework ∆-FL minimizes the tail loss across clients, as measured by the superquantile. Concretely, at a tail threshold θ (0,1), we minimize
+∈ F
+θ
+(w):=Sθ (cid:0) F
+1
+(w),...,F n
+(w) (cid:1) + λ w 2 , (2)
+2 (cid:107) (cid:107) w ob h j e e r c e ti S ve θ ( ( a 2 1 ) ,. m .. e , a a su n r ) es is t t h h e e ta (1 il−sta θ t ) i - s s t u ic p s er o q f u t a h n e t p il e e r- o c f li t e h n e t l e o m ss p d ir i i s c t a r l ib d u i t s i t o r n ib . ution (1/n) (cid:80)n i=1 δ ai . Thus, the
+2
+By a duality argument, we show that the superquantile objective (2) promotes distributional robustness. If we have a test client who is unseen during training and whose distribution p = (cid:80)n π q can be written
+π i=1 i i as a mixture of the training distributions q ,...,q , then the ∆-FL objective can be written as
+1 n
+λ F θ (w)=
+πi≤ m
+1 a
+/( x
+θn) Eξ∼pπ [f(w;ξ)]+
+2 (cid:107) w
+(cid:107)
+2 . In other words, we minimize the worst-case loss over all mixture distributions with a constraint π 1/(θn) i on the mixture weights; see Section 4.1 for details. ≤ Optimization Algorithms. To design a federated optimization algorithm to optimize the ∆-FL objective, thenonsmoothnessofthesuperquantilea Sθ (a 1 ,...,a n )mightleadtopotentialdifficultiesinoptimization. Fortunately, we can derive an expression fo(cid:55)→r the subgradient of the ∆-FL objective (2): when θn is an integer, we have n
+(cid:88) i=1 π i (cid:63)F i (w)+λw ∈ ∂F θ (w), where π i (cid:63) = (cid:80)n j I = ( 1 F I i ( ( F w j ) (w ≥ ) Q ≥ θ ) Q θ ) , andQ =Q (F (w),...,F (w))isthe(1 θ)-quantileofthelossesevaluatedatw. Inotherwords, averaging
+θ θ 1 n the gradients of the losses that are larger−than the quantile Q gives a valid subgradient of the objective (2).
+θ Using this expression, we design a federated optimization algorithm that interleaves federated averaging with differentially private quantile estimation. Specifically, the local updates w+ from the subsample of m i selected clients i S are aggregated to update the global model with the following two steps:
+• estimate Qˆ ∈ Q (F (w) : i S) using the distributed discrete Gaussian mechanism [49] and hierarchical
+θ θ i histograms [2≈1], and ∈
+• aggregate the updates from the tail clients where F (w) Qˆ to find the new global model w+ as i θ
+≥
+1 (cid:88) w+ = w+, where S = i : F (w) Qˆ . S i θ { i ≥ θ }
+θ
+| |i∈Sθ Similar to FedAvg, this aggregation rule enjoys a simplification in the case of a single local update per-client with a learning rate γ. Specifically, under the assumption of full client participation (i.e., m=n), if the local update w w+ =γ (cid:0) F (w)+(λ/2) w 2 (cid:1) is a single gradient step and Qˆ =Q (F (w),...,F (w)) is the exact quan−tile i of the∇per-c i lient losses,(cid:107)the(cid:107)aggregated update is simply a subg θ radien θ t st 1 ep w w+ n =γ F (w)
+θ where we denote the subgradient as F (w) ∂F (w). − ∇
+θ θ
+∇ ∈ Convergence Analysis. Apart from the nonsmoothness of the superquantile, the convergence analysis also has to overcome the difficulty that we cannot obtain unbiased minibatch subgradient estimators for the superquantile objective. Given m i.i.d. copies Z ,...,Z of a random variable Z, the empirical mean
+1 m Z¯ m
+=(1/m) (cid:80)m i=1 Z i is an unbiased estimate of the population mean, i.e., E[Z¯ m
+]=E[Z]. This is no longer true for the superquantile, i.e., E[Sθ (Z
+1
+,...,Z m
+)]=Sθ (Z). As a result, we cannot access unbiased stochastic gradients in the learning setting, where m is the m(cid:54) inibatch size. Moreover, it is not reasonable to assume in federated learning that we have access to all the clients due to a diurnal availability pattern of clients [50]. We overcome this issue by actually minimizing the expected minibatch superquantile instead. It is defined as
+(cid:2) (cid:0) (cid:1)(cid:3) F θ (w):=E(i1,...,im)∼Um Sθ F i1 (w),...,F im (w) , where U is the uniform distribution over all subsets of 1,...,n of batch size m. We can build an unbiased m subgradient estimator for this objective by sampling a m{inibatch} (i ,...,i ) U . This is a uniform close
+1 m m surrogate of the original objective [61, Prop. 1] ∼
+(cid:18) (cid:19) max F (w) i=1,...,n i F (w) F (w) O | | .
+θ θ
+| − |≤ √θm Assuming that each F is G-Lipschitz and L-smooth, we establish a rate of (cid:112) LG2/T in the nonconvex i
+(and nonsmooth) case where λ = 0. If, additionally, each F is convex and λ > 0, the problem is strongly i
+3
+convex and we establish a rate of exp( T/κ3/2)+G2/(λT) in this case where κ=1+L/λ is the per-client condition number. − Privacy and Utility Analysis. The standard algorithms to compute quantiles with differential privacy are based on the exponential mechanism and require a trusted central aggregator [92]. Since this is not usually the case in federated learning, we estimate the cumulative distribution using the hierarchical histogram method and combine it with the distributed discrete Gaussian mechanism [49] in order to simulate a central aggregation using a cryptographic primitive known as secure aggregation [8]. The hierarchical histogram method, also known as tree aggregation, is a classical approach to answer range queries under differential privacy [43, 32, 16, 93, 21]. Privacy guarantees are obtained by adding noise to the per-client computations, resulting in a degradation of utility (i.e., the performance relative to the non-private case). This leads to a tradeoff between privacy and utility. For a hierarchical histogram of b bins, we prove a (1/2)ε2-concentrated differential privacy [12] guarantee given a per-client noise of scale logb/(ε√n) and a quantile error of log2b/(εn) up to constants and log factors. Experiments. Weperformnumericalexperimentsusingneuralnetworksandlinearmodelsontasksincluding image classification and sentiment analysis based on public datasets. The experiments demonstrate the superiorperformanceof∆-FLoverstate-of-the-artbaselinesontheupperquantilesoftheerrorontestclients, with particular improvements on data-poor clients, while being competitive on the mean error. A deeper analysis reveals that ∆-FL helps improve performance on data-poor clients. Wenumericallystudytheprivacy-utilitytradeoffofthedifferentiallyprivatequantileestimationalgorithm described above and the ∆-FL algorithm with end-to-end differential privacy guarantees. We find that ∆-FL outperforms FedAvg on the tail error across a wide range of privacy budgets while exhibiting a comparable privacy-utility tradeoff to FedAvg on the mean error.
+1.2 Outline We start with Section 2 to describe the related work. Section 3 describes the general setup, recalls the FedAvg algorithm, and formally defines the superquantile as a tail summary of a random variable. Section 4 presents a federated optimization algorithm for ∆-FL. We analyze its convergence in the convex and non-convex cases, as well as its differential privacy properties in Section 5. We discuss an extension to other risk measures and relations to fair allocation in Section 6. Section 7 presents experimental results, comparing the proposed approach to existing ones. Detailed proofs and additional details can be found in the supplement, while the code and the scripts to reproduce the experiments can be found at https://github.com/krishnap25/simplicial-fl. An early version of this work was presented at IEEE CISS [58]. This paper extends and improves upon it in several respects. First, we give an improved and tighter convergence analysis in both the convex and general nonconvex cases. Second, we augment our algorithm with differential privacy and analyze its privacy and utility. Finally, we conduct an expanded numerical study, including (a) comparing with baselines such as Tilted-ERM [65] that were published after our paper [58], (b) an empirical comparison to model personalization, and, (c) a study of the privacy-utility tradeoff of ∆-FL under differential privacy. t N o o d t e a n t o io te n t . h T e h p e ro n b o a r b m ili(cid:107)t·y(cid:107)s d im en p o l t e e x t i h n e E n u . clidean norm (cid:107)·(cid:107)2 in R d. We use ∆n−1 = (cid:8) π ∈ R n + : (cid:80)n i=1 π i =1 (cid:9) R
+2 Related Work Federated learning was introduced by [67] to handle distributed on-client learning [50, 62, 38]. A plethora of recent extensions have also been proposed [103, 89, 69, 100, 70, 91, 48, 90, 20]. Our approach to addressing the statistical heterogeneity by proposing a new objective is broadly applicable in these settings. Distributionally robust optimization [5], which aims to train models that perform uniformly well across all subgroups instead of just on average, has witnessed a flurry of recent research [59, 29, 55]. This approach is
+4
+closelyrelatedtotheriskmeasuresstudiedineconomicsandfinance[2,83,4,37]. Therecentworks[56,60,22] study optimization algorithms for risk measures. More broadly, risk measures have been successfully utilized in problems ranging from bandits [88, 15], reinforcement learning [17, 96, 18], and fairness in machine learning [101, 82]. The federated learning method here is based on the superquantile [84], a popular risk measure. We propose a stochastic optimization algorithm adapted to the federated setting and prove its convergence. Addressing statistical heterogeneity in federated learning has led to two lines of work. The first includes algorithmic advances to alleviate the effect of heterogeneity on convergence rates while still minimizing the classical expectation-based objective function of empirical risk minimization. These techniques include the use of proximal terms [63], control variates [51] or augmenting the server updates [97, 80]; we refer to the recent survey [98] for details. More generally, the framework of local SGD has been used to study federated optimization algorithms [95, 104, 41, 26, 66, 52, 53]. Compared to these works, which study federated optimization algorithms in the smooth case, we tackle in our analysis the added challenge of nonsmoothness of the superquantile-based objective in both the general nonconvex and strongly convex cases. The second line of work addressing heterogeneity involves designing new objective functions by modeling statistical heterogeneity and designing optimization algorithms. The AFL framework to minimize the worstcase error across all training clients and associated generalization bounds were given in [71]. The concurrent work of [64] proposes the q-FFL framework whose objective is inspired by fair resource allocation to minimize theLp normoftheper-clientlosses. Severalrelatedworkswerealsopublishedfollowingtheinitialpresentation ofthiswork[57]. A federatedoptimizationalgorithmforAFLwasproposedand itsconvergencewasanalyzed in [24]. Distributional robustness to affine shifts in the data was considered in [81] along with convergence guarantees. Finally, a classical risk measure, namely the entropic risk measure, was considered in [65]. We note that no convergence guarantees are currently known for the stochastic optimization algorithms of [64]. Furthermore, it is unclear if any of these algorithms can be implemented with differential privacy. Differential privacy was introduced in [31, 30] to formalize the loss of privacy of an individual user in releasing population-level aggregates. DP-FedAvg [68], a differentially private variant of FedAvg, is also implemented in industrial systems [79]. Recent contributions in this direction include differential privacy mechanism compatible with secure aggregation [49, 1] and improving privacy-utility tradeoffs of federated learning with personalization [47, 7].
+3 Problem Setup We begin this section by recalling the standard setup of federated learning in Section 3.1. We then describe the standard approach to federated learning and its associated optimization, FedAvg [67] in Section 3.2. We then define the superquantile in Section 3.3.
+3.1 Federated Learning Setup Federated learning consists of heterogeneous clients who collaboratively train a machine learning model under the orchestration of a central server. The model is then deployed to all clients, including those not seen during training. Let the vector w R d denote the d model parameters. We assume that each client has a distribution q over some data spa∈ce such that the data on the client is sampled i.i.d. from q. The loss incurred by the model w R d on this client is F(w;q):=Eξ∼q [f(w;ξ)], where f(w;ξ) is the chosen loss function, such as the logistic lo∈ss, on input-output pair ξ under the model w. The expectation above is assumed to be well-defined and finite. For a given distribution q, smaller values of F(;q) denote a better fit of the model to the data. There are n clients available for training. We number th·ese clients as 1,...,n and denote the distribution on training client i by q . We denote the loss on client i by F (w):=F(w;q ). i i i The goal of federated learning is to train a model w so that it achieves good performance when deployed on each test client, including those unseen during training. Owing to the statistical heterogeneity of federated
+5
+learning,thedistributionpofaspecifictestclientcouldbedifferentfromtheaveragedistribution(1/n) (cid:80)n q i=1 i that the model is trained on. Each federated learning method is characterized by an objective function and the federated optimization algorithm used to minimize it. It is not possible to achieve good performance on each client simultaneously with a single model w, as it would be a difficult multiobjective optimization problem. The usual approach is to combine the per-client losses into a scalar and minimize this objective. The choice of the objective function and optimization algorithm is primarily determined by the three key aspects of federated learning [50, 62]:
+(1) Communication Bottleneck: The repeated exchange of massive models between the server and clients over resource-limited wireless networks makes communication a critical bottleneck. Therefore, training algorithms should be able to trade off more local computation for a lower communication cost.
+(2) Statistical Heterogeneity: The training distribution q and a specific test distribution p are likely to be i different from each other. Therefore, a model which works well on average over all test clients might not work well on each individual test client.
+(3) Privacy: The data on each client is highly privacy-sensitive. Federated learning is designed to protect data privacy since no user data is transferred to a data center. This privacy is enhanced by secure aggregation of model parameters, which refers to aggregating client updates such that no client update is directly revealed to any other client or the server. This is achieved by cryptographic protocols based on secure multiparty communication [8].
+3.2 Federated Learning and the FedAvg algorithm Analogous to the classical expectation-based objective function in the empirical risk minimization approach, the standard objective in federated learning is to minimize the average loss on the training clients n
+1 (cid:88) λ min F (w)+ w 2, (3) i w∈Rd n 2(cid:107) (cid:107) i=1 where λ 0 is a regularization parameter. We will call this objective the vanilla FL objective. The d≥e facto standard training algorithm is FedAvg [67]. Each round of the algorithm consists of the following steps:
+(a) The server samples a set S of m clients from [n] and broadcasts the current model w(t) to these clients.
+(b) Staring from w(t) =w(t), each client i S makes τ local gradient descent steps with a learning rate γ: i,0 ∈ w(t) =w(t) γ F (w(t)). i,k+1 i,k− ∇ i i,k In practice, one could also use local stochastic gradient steps, but we restrict ourselves to local full gradient steps for simplicity.
+(c) The models from the selected clients are sent to the server and aggregated to update the server model
+1 (cid:88) w(t+1) = w(t) . m k,τ i∈S FedAvg addresses the communication bottleneck by using τ >1 local computation steps as opposed to
+τ =1 local steps in minibatch SGD. It also securely performs the averaging step (c) to enhance data privacy. However, the vanilla FL objective places a limit on how well statistical heterogeneity can be addressed. By minimizing the average training loss, the resulting model w can sacrifice performance on “difficult” clients to perform well on average. In other words, it is not guaranteed to perform well on individual test clients, whose distribution p might be quite different from the average training distribution (1/n) (cid:80)n q . Our goal in this i=1 i work is to design an objective function, different from the vanilla FL objective (3) to better handle statistical heterogeneity and the associated train-test mismatch. We also design a federated optimization algorithm similar to FedAvg to optimize it.
+6
+3.3 Summarizing the Tail Behavior with the Superquantile Inthiswork,weconsiderclientswithheterogeneouslocaldatadistributionsq ,...,q . Thisdataheterogeneity
+1 n manifests itself as a spread over the losses F (w),...,F (w) for any w. In particular, some clients might
+1 n suffer large losses due to their distributions being far from the average population distribution. Our goal is to improve the loss (and hence, predictive performance) on such tail clients whose loss is worse than average. In other words, we are concerned with the right tail statistics of the empirical distribution over the losses F (w),...,F (w).
+1 n A natural summary of the right tail of a random variable Z is its high quantiles. Recall that the
+(1 θ)-quantile Q (Z) of a real-valued random variable Z is defined as
+θ
+− Q θ (Z):=inf η R : P(Z >η) θ .
+{ ∈ ≤ } Unfortunately, the quantile function of discrete random variables such as the empirical loss distribution is piecewise constant and is not amenable to gradient-based optimization. A better-behaved tail summary in this regard is the superquantile, also known as the conditional value at risk (CVaR) [83, 84]. The superquantile Sθ (Z) of a random variable Z is defined as the average of all quantiles greater than the
+(1 θ)-quantile:
+− 1 (cid:90) θ Sθ (Z)= Q α (Z)dα. (4)
+θ
+0 For continuous random variables, we have the equivalence Sθ (Z)=E[Z Z >Q θ (Z)] of the superquantile as the tail mean, as illustrated in Figure 2. Owing to this interpretation, we| refer to the parameter θ as the tail threshold. Central to our development is the dual expression of the superquantile [36]: Sθ (a 1 ,...,a n )= max π(cid:62)a,
+π∈Pθ (5) where = π ∆n−1 : π (θn)−1 for all i .
+θ i P { ∈ ≤ } H th e e re p , r S o θ b ( a a b 1 i , li . t . y ., s a im n ) pl d e e x no in tes n th . e T ( h 1 e−di θ s ) c - r s e u t p e e s r u q p ua er n q t u ile an o t f il t e h i e s e t m hu p s ir t ic h a e l s m up ea p s o u r r t e fu (1 n / c n ti ) o (cid:80) n n i o = f 1 t δ h a e i p a o n l d yt ∆ op n− e 1 is , R θ which is illustrated in Figure 2. Not only is the discrete superquantile a continuous function of its inpuPts
+(unlike the quantile function), but it is also convex as it is the maximum of a family of linear functions in the expression (5).
+4 Handling Heterogeneity with ∆-FL In this section, we introduce the ∆-FL framework in Section 4.1 and propose an algorithm to optimize in the federated setting in Section 4.2.
+4.1 The ∆-FL Framework The ∆-FL framework aims to improve the performance of the tail clients by minimizing the superquantile of the loss distribution. Given a discretization θ ,...,θ of (0,1], ∆-FL maintains r models w ,...,w , one
+1 r 1 r for each tail threshold θ . We allow each test{client to s}elect the best model w w ,...,w , according to j 1 r its local data. Recall the schematic in Figure 1 for an illustration. ∈{ } For a given tail threshold θ, we propose to minimize the (1 θ)-superquantile of the distributions of losses:
+−
+(cid:20) (cid:21) min F
+θ
+(w):=Sθ (cid:0) F
+1
+(w),...,F n
+(w) (cid:1) + λ w 2 . (6) w∈Rd 2(cid:107) (cid:107) The objective (6) focuses on poor-performing clients — specifically those with performance worse than the (1 θ)-quantile of the distribution of losses (F (w),...,F (w)). In contrast, the vanilla FL objective
+1 n
+−
+7
+1 E[Z] Q (Z)
+θ
+1
+0 Sθ (Z)=E[Z Z >Q θ (Z)]
+|
+1 Figure 2: Left:(1−θ)-quantile Q θ (Z) and superquantile Sθ (Z) of a continuous r.v.Z. Right: The set of feasible mixture weights π=(π ,π ,π )∈P in the dual formulation (5) is given by the intersection of the box constraints
+1 2 3 θ
+0≤π ≤(3θ)−1 for i=1,2,3, with the simplex constraint π +π +π =1. i 1 2 3 optimizes (1/n) (cid:80)n F (w)+λ/2 w 2, which is lim F (w); this equally weights all clients involved in training. At the ot i h = e 1 r e i xtreme θ (cid:107) 0 (cid:107), we recover the θ w → o 1 rst θ -case loss over all clients.
+→ Distributionally Robust Interpretation. We have the following dual characterization of ∆-FL as a distributionally robust learning objective, as a consequence of the dual representation (5) of the superquantile. Property 1. The ∆-FL objective (6) can also be written as n
+(cid:88) F (w)= max π F (w),
+θ π∈Pθ i=1 i i (7) where, := (cid:8) π ∆n−1 : π (nθ)−1for all i [n] (cid:9) .
+θ i P ∈ ≤ ∈ This reformulation shows that ∆-FL can be interpreted as a distributionally robust variant of the vanilla FL objective: since (cid:80)n π F (w) = F(w;p ) is loss of w on the mixture p = (cid:80)n π q of the training i=1 i i π π i=1 i i distributions q ,...,q , we get that ∆-FL aims to minimize the worst-case loss over all mixtures p subject
+1 n π to the constraint that π (nθ)−1. i This formulation also≤reveals two important properties of the ∆-FL objective. First, we note that the objective F , as a max function. is convex whenever the losses F are convex. Second, it is a non-smooth
+θ i function, with the non-smoothness stemming from the maximum over the polytope (cf. Figure 2). These
+θ two properties will play important role in the convergence analysis of our federated aPlgorithm in Section 5.1.
+4.2 Federated Optimization for ∆-FL We now propose a federated optimization algorithm for the ∆-FL objective (6). While there could be many approaches to optimizing (6), we consider algorithms similar to FedAvg for their ability to avoid communication bottlenecks and preserve the privacy of user data. Owing to the tail mean interpretation of the superquantile (Figure 2), a natural algorithm to minimize it first evaluates the loss on all the clients and only performs gradient updates on those clients in the tail above the (1 θ)-quantile. However, since a practical algorithm cannot assume that all the clients are available at a giv−en time, we perform the same operation on a subsample of clients. The optimization algorithm for the ∆-FL objective (6) is given in Algorithm 1. It has the following four steps:
+(a) Model Broadcast (line 2): The server samples a set S of m clients from [n] and sends the current model w(t).
+(b) Quantile Computation and Reweighting (lines 3 and 5): Selected clients i S and the server collaborate to estimate the (1 θ)-quantile of the losses F (w(t)) with differential pri∈vacy. The clients then update i
+−
+8
+Algorithm 1 The ∆-FL Algorithm Input: Initial iterate w(0), number of communication rounds T, number of clients per round m, number of local updates τ, local step size γ
+1: for t=0,1,...,T 1 do
+2: Sample m clien−ts from [n] without replacement in S
+3: Estimate the (1 θ)-quantile of F i (w(t)) for i S with distributed differential privacy (Algorithm 2); call this Q(t − ) ∈
+4: for each selected client i S in parallel do
+5: Set π˜ i (t) = I (cid:0) F i (w(t)) ∈ ≥ Q(t) (cid:1)
+6: Initialize w(t) =w(t) k,0
+7: for k =0,...,τ 1 do
+−
+8: w i ( , t k ) +1 =(1 − γλ)w i ( , t k ) − γ ∇ F i (w i ( , t k ))
+9: w(t+1) = (cid:80) π˜(t)w(t)/ (cid:80) π˜(t) i∈S i i,τ i∈S i
+10: return w T their weights to be zero if their loss is smaller than the estimated quantile and leave them unchanged otherwise. This ensures that model updates are only aggregated from the tail clients; cf. Figure 2.
+(c) Local Updates (loop of line 7): Staring from w(t) = w(t), each client i S makes τ local gradient or stochastic gradient descent steps with a learning k, r 0 ate γ. ∈
+(d) Update Aggregation (line 9): The models from the selected clients are sent to the server and aggregated to update the server model, with weights from line 5). Compared to FedAvg, ∆-FL has the additional step of computing the quantile and new weights π˜(t) for each i selected client i S in lines 3 and 5. Let us consider ∆-FL in relation to the three key aspects of federated learning we intro∈duced in Section 3.1.
+(1) Communication Bottleneck: Identical to FedAvg, ∆-FL algorithm performs multiple computation rounds per communication round.
+(2) Statistical Heterogeneity: The ∆-FL objective is designed to optimize the tail mean of the per-client loss distribution as formalized by the superquantile. The vanilla FL objective, in contrast, is oblivious to performance disparities across clients.
+(3) Privacy: Identical to FedAvg, ∆-FL does not require any data transfer, and the aggregation of line 9 can be securely performed using secure multiparty communication. The extra step of quantile computation is also performed with distributed differential privacy, as we describe next. Quantile Estimation with Distributed Differential Privacy. The naïve way to compute the quantile of the per-client losses in line 3 of Algorithm 1 is to have the clients send their losses to the server. To avoid the privacy risk of leakage of information about the clients to the server, we compute the quantile with distributed differential privacy [49] using the discrete Gaussian mechanism [14]. The key idea behind differential privacy [30, 33] is to ensure that the addition or removal of the data from one client does not lead to a substantial change in the output of an algorithm. A significant difference in the output would give a privacy adversary enough signal to learn about the client who was added or removed. Distributed differential privacy simulates a trusted central aggregator by using a secure summation o re r s a i c d l i e n [ g 8] w , i w th hi c ch lie e n n t a i b . le P s r t a h c e ti c c o a m l i p m u p ta le t m io e n n o ta f t s i u o m ns m o a f t s io u n c s h (cid:80) alg i∈ o S ri v th i m w s he a r r e e v b i a∈se R d d on is c a ry p p ri t v o a g c r y a - p s h en ic si t t e iv c e hn v i e q c u to es r such as secure multiparty computation [35], which requires each component of the vectors v to be discretized i to the ring ZM of integers modulo M. We abstract out the details of the secure summation oracle and only require that it returns the sum (cid:0)(cid:80) x (cid:1) mod M without revealing any further information to a privacy i∈S v adversary. We assume that the losses are bounded as F (w) [0,B] for each i S, and that we are given b bin edges i
+0 l < l < < l = B. We aim to construct∈a hierarchical hist∈ogram h that maintains the number
+0 1 b
+≤ ···
+9
+Algorithm 2 Quantile Computation with Distributed Differential Privacy Input: Ring size M, set S of m = S clients where each client i has a scalar (cid:96) [0,B], target quantile i
+1 θ (0,1), discretization l 0 ,l 1 | ,.. | .,l b of [0,B], variance proxy σ2, scaling fact∈or c Z+
+1: Ea−chc∈lienticomputesahierarchicalhistogramx i (r,j)=I
+(cid:0) l 2r(j−1)+1 F i (w)<l 2rj
+(cid:1)∈forj
+=1,...,b/2r and r =0,...,log b 1 ≤
+2: Each client i samples 2 ξ i (r − ,j) Z(0,σ2) i.i.d. and sets x˜ i (r,j)= (cid:0) cx i (r,j)+ξ i (r,j) (cid:1) mod M for each
+∼N r,j
+3: Compute s=( (cid:80) i∈S x˜ i ) mod M securely
+4: Set hierarchical histogram hˆ = s/c and define for j [b] its cumulative sum Hˆ(j) = (cid:80) hˆ(r,o)
+∈ (r,o)∈Pj using a maximal dyadic partition P of [1,j] j
+5: return Quantile estimate l j∗(hˆ) corresponding to index j θ ∗(hˆ); cf. Eq. (8)
+θ of clients not only in every single bin but also in groups of bins organized as a binary tree. Concretely, h(r,j) maintains the number of clients whose losses lie between the bin edges l and l for index
+2r(j−1)+1 2rj j =1,...,b/2r and level r =0,...,log b 1. The lower levels r =0 and r =1 correspond respectively to individual bins and pairs of bins, while t 2 he−topmost level r =log b 1 refers to two groups: the first b/2 bins and the last b/2 bins. We skip the topmost level in the tree be 2 cau−se the count at this node is the publicly known number m= S of clients. The hierarchical histogram method, also known as tree aggregation, is a classical technique to|a|nswer range queries and in cumulative distribution estimation [43, 32, 16, 93]. Our algorithm is given in Algorithm 2. Each client i first computes its local hierarchical histogram x as i
+(cid:0) (cid:1) x i
+(r,j)=I l
+2r(j−1)+1 F i
+(w)<l
+2rj
+,
+≤ such that the overall hierarchical histogram can be obtained as h= (cid:80) x . To enforce differential privacy, i∈S i each client then adds random discrete Gaussian noise ξ i Z(0,σ2I) with scale parameter σ2 and of appropriate dimension. These noisy x˜ ’s are summed up usin∼g aNsecure summation oracle so that the server i receives an approximate hierarchical histogram hˆ which approximates the true histogram h= (cid:80) x . With i∈S i slight abuse of notation, we still refer to hˆ as a hierarchical histogram, although it could have negative entries andcouldbeinconsistent,i.e.,thecounthˆ(r,j)atanodemightnotequalthesumhˆ(r 1,2j 1)+hˆ(r 1,2j) of counts at its children nodes. − − − The final step is to define and return an appropriate notion of a (1 θ)-quantile of the approximate
+− histogram hˆ. A non-negative hierarchical histogram h can be viewed as a random variable Z with (scaled) cumulativedistributionfunctionH(j)=mP (cid:0) Z l j
+(cid:1) =h(0,1)+...+h(0,j),fromwhichwecanestimatethe quantile. We can obtain a greater utility under≤differential privacy by expressing the cumulative distribution function H(j) of this random variable Z by using nodes higher up in the tree. Concretely, using a maximal dyadic partition P of the range [1,j], we have H(j)= (cid:80) h(r,o) from summing up P log b terms. j (r,o)∈Pj | j |≤ 2 For instance, the dyadic partition for j =15 is P =[1,8] [9,12] [13,14] [15], where the counts of each
+15 range on the right side can be obtained from an intermedia∪te node∪in the hi∪erarchical histogram h. With this definition of the cumulative mass H(j), we define (1 θ)-quantile of the hierarchical histogram h as the quantile function of this induced random variable Z: −
+(cid:110) (cid:111) Q (H):=Q (Z)= min l : H(j)>(1 θ)m .
+θ θ j j∈[b] − Similarly, for approximate hierarchical histograms hˆ that are inconsistent and allow for negative values, we define the cumulative function Hˆ(j)= (cid:80) hˆ(r,o) from a maximal dyadic partition P of [1,j]. As an
+(r,o)∈Pj j estimate of the quantile, we return the bin edge l such that the estimated cumulative mass Hˆ(j) is as close j Weassumeforsimplicitythatbisapowerof2sothatlog bisaninteger.
+2 SeeAppendixBforaformaldefinition.
+10
+Algorithm 3 The ∆-FL Algorithm with Exact Reweighting Input: Same as Algorithm 1
+1: for t=0,1,...,T 1 do
+2: Sample m clien−ts from [n] without replacement in S
+3 4 : : C fo o r m e p a u ch te s π el ( e t c ) t = ed a c rg lie m n a t x i π∈P S θ,Sin (cid:80) p i a ∈ r S al π le i l F d i ( o w(t))
+∈
+5: Initialize w(t) =w(t) i,0
+6: for k =0,...,τ 1 do
+−
+7: w i ( , t k ) +1 =(1 − γλ)w i ( , t k ) − γ ∇ F i (w i ( , t k ))
+8: w(t+1) = (cid:80) π(t)w(t) i∈S i i,τ
+9: return w T to 1 θ as possible:
+− Q θ (hˆ):=l j θ ∗(hˆ) where j θ ∗(hˆ) =ar j g ∈ m [b] in (cid:12) (cid:12)Hˆ(j) − (1 − θ)m (cid:12) (cid:12). (8)
+5 Theoretical Analysis In this section, we analyze the convergence analysis of ∆-FL (Section 5.1) and study the differential privacy properties of the quantile computation (Section 5.2).
+5.1 Convergence Analysis We study the convergence of Algorithm 1 with respect to the objective (6) in two cases: (i) the general non-convex case, and (ii) when each F (w) is convex. i Assumptions. Wemakesomeassumptionsontheper-clientlossesF ,whichareassumedtoholdthroughout i this section. For each client i [n], the objective F is i
+(a) B-bounded, i.e., 0 F i (w) ∈ B for all w R d,
+(b) G-Lipschitz, i.e., F ≤ i (w) F ≤ i (w(cid:48)) G w ∈ w(cid:48) for all w,w(cid:48) R d, and,
+(c) L-smooth, i.e., F |is cont−inuously|d≤iffer(cid:107)ent−iable(cid:107)and its gradie∈nt F is L-Lipschitz. i i
+∇ Equivalent Algorithm. Algorithm 1 is not amenable to theoretical analysis as it is stated because the quantile function of discrete random variables computed in line 3 is piecewise constant and discontinuous. To overcome this obstacle, we introduce a near-equivalent algorithm in Algorithm 3, which replaces the reweightingstepofAlgorithm1(lines3and5)withtheidealreweightingsuggestedbythedualrepresentation of (7). Let us start with the case of S =[n]. Our first observation shows that the weights π(t) that attain the maximum over π in the objective (7) can be used to construct a subgradient of F in the general nonconvex
+θ case — this will eventually allow us to derive convergence guarantees. Property 2. Fix a w ∈ R d and let π(cid:63) ∈ argmax π∈Pθ (cid:80)n i=1 π i F i (w). Then, we have, n
+(cid:88)
+π(cid:63)F (w)+λw ∂F (w), i i ∈ θ i=1 where ∂F (w) denotes the regular subdifferential of F .
+θ θ Proof. Let h (a) := max π(cid:62)a denote the support function of the polytope , and let g (w) =
+(F (w),...,F θ (w))denotet π h ∈ e P c θ oncatenationofthelossesintoavector. Then,F (w)= P h θ g (w)+(λ/ n 2) w 2.
+1 n θ θ n
+◦ (cid:107) (cid:107)
+11
+Since h is convex, we get that its (convex) subdifferential [e.g., 44, Cor.4.4.4] is
+θ
+∂h (a)=argmaxπ(cid:62)a.
+θ
+π∈Pθ Since g is smooth and h is convex with full domain, we obtain the regular subdifferential of h g by the n θ θ n chain rule [86, Thm. 10.6] as ◦
+(cid:0) (cid:1)
+∂(h g )= g (w)∂h g (w) ,
+θ n n θ n
+◦ ∇ where g n (w) R d×n is the transpose of the Jacobian matrix of g n . We can handle the regularization by absorbi∇ng it int∈o the superquantile by defining F˜(w)=F (w)+(λ/2) w 2. i i
+(cid:107) (cid:107) Algorithm 3 extends this intuition to the setting where only a subsample S [n] of clients are available in each round. We define the counterpart of the constraint set from (7) defin⊂ed on a subset S [n] of m
+θ clients as: P ⊂
+(cid:26) (cid:27)
+1
+= π ∆|S|−1 : π , for i S , (9)
+θ,S i P ∈ ≤ θm ∈ where we denote (π i ) i∈S R |S| by π with slight abuse of notation. With this notation, Algorithm 3 computes the new weights of the cl∈ients as
+(cid:88)
+π(t) =argmax π F (w(t)). i i
+π∈Pθ,S i∈S We now analyze how close Algorithm 3 is to Algorithm 1. Let Z(w) be a discrete random variable which takes the value F (w) with probability 1/n for i=1,...,n, and let Q (Z(w)) denote its (1 θ)-quantile. The i θ weights πˆ ∆n−1 considered in Algorithm 1 (assuming that Q(t) is the exact quantile of − F (w(t)) : i S ) i are given b∈y a hard-thresholding based on whether F (w) is larger than its (1 θ)-quanti{le: ∈ } i
+−
+π˜ i =I (cid:0) F i (w)
+≥ Q θ (Z(w)) (cid:1) , and, πˆ i = (cid:80)n i(cid:48)
+π˜
+= i
+1 π˜ i(cid:48)
+. (10) The objective defined by these weights is Fˆ (w)= (cid:80)n πˆ F (w)+(λ/2) w 2. The next proposition shows
+θ i=1 i i (cid:107) (cid:107) that Fˆ (w)=F (w) under certain conditions, or is a close approximation, in general.
+θ θ Proposition 3. Assume F (w)< <F (w) and let i(cid:63) = θn . Then, we have,
+1 n
+(a) π(cid:63) =argmax (cid:80)n π F (w · ) · i · s unique, (cid:100) (cid:101)
+π∈Pθ i=1 i i
+(b) Q (Z(w))=F (w),
+θ i(cid:63)
+(c) if θn is an integer, then πˆ =π(cid:63) so that Fˆ (w)=F (w), and,
+θ θ
+(d) if θn is not an integer, then B
+0 F (w) Fˆ (w) .
+θ θ
+≤ − ≤ θn Proof. We assume w.l.o.g. that λ = 0. We apply the property that the superquantile is a tail mean (cf. Figure 2) for discrete random variables [84, Proposition 8] to get n (cid:18) (cid:19)
+1 (cid:88) θn F θ (w)= F i (w)+ 1 (cid:98) (cid:99) F i(cid:63) (w).
+θn − θn i=i(cid:63)+1 Comparing with dual representation (7), this gives a closed-form expression for π(cid:63), which is unique because F i(cid:63)−1 (w)<F i(cid:63) (w)<F i(cid:63)+1 (w). For (b), note that Q θ (Z(w))=inf η R : P(Z(w)>η) θ equals F i(cid:63) (w) by definition of i(cid:63). Therefore, if θn is an integer, π(cid:63) coincides exact{ly∈with πˆ. When θn is≤not}an integer, we have n
+1 (cid:88) Fˆ (w)= F (w).
+θ n i(cid:63)+1 i
+− i=i(cid:63) The bound on Fˆ (w) F (w) follows from elementary manipulations together with 0 F (w) B.
+θ θ i
+− ≤ ≤
+12
+In our context where we sample m clients per round, Theorem 3 holds for each round. In particular, part (c) of Theorem 3 states that when θm is an integer, the weights π(cid:63) computed as an exact argmax in Algorithm 3 are identical to the weights πˆ in Algorithm 1 where line 5 exactly computes the quantile of the per-client losses. We record another consequence of Theorem 3, namely, that the reweighting π(t) is sparse. Remark 1. Theorem 3 shows that ∆-FL’s reweighting π(t) (line 3 of Algorithm 3) is sparse. That is, π(t) is i non-zero only for exactly θm clients with the largest losses.
+(cid:100) (cid:101) Bias due to Partial Participation. Note that the dual representation (7) is the maximum over all distributions in , but Algorithm 3 and Algorithm 1 only maximize the weights over a set S of m clients in
+θ each round (lineP3). Therefore, the updates performed by Algorithm 3 are not unbiased. To formalize this, define the objective
+(cid:88) λ F
+θ
+(w):=ES∼Um [F
+θ,S
+(w)], where F
+θ,S
+(w)=
+π m
+∈P a
+θ x
+,Si∈S
+π i F i
+(w)+
+2(cid:107) w
+(cid:107)
+2 is the analogue of (7) defined on a sample S [n] of clients, and U is the uniform distribution over subsets m of [n] of size m. In each step, Algorithm 3 ap⊂proximates the subgradients of F . Indeed, Theorem 2 gives
+θ,S
+(cid:88)
+π(t)F (w(t))+λw(t) ∂F (w(t)). (11) i i ∈ θ,S i∈S In expectation, Algorithm 3 therefore takes subgradient steps for F — this introduces a bias when compared
+θ to the original F that we would like to optimize. Fortunately, this bias can be bounded as [61, Prop. 1]
+θ sup (cid:12) (cid:12)F θ (w) F θ (w) (cid:12) (cid:12) B . (12) w∈Rd − ≤ √θm Our analysis strategy will be to study the convergence (near-stationarity or near-optimality) in terms of the objective F which Algorithm 3 actually minimizes, and then translate that to a convergence result on the
+θ original objective F using the bound (12).
+θ Convergence: Nonconvex Case. We start with the convergence analysis in the nonconvex case with no regularization (i.e., λ=0). Since F is nonsmooth and nonconvex, we state the convergence guarantee in
+θ terms of the Moreau envelope of F [44] following the idea of [28, 23]. Given a parameter µ>0, we define
+θ the Moreau envelope of F as
+θ
+Φ µ (w)= inf (cid:110) F (z)+ µ w z 2 (cid:111) . (13)
+θ z∈Rd θ 2(cid:107) − (cid:107) TheMoreauenvelopesatisfiesseveralremarkablepropertiesforµ>L[28,Lemma4.3]. First,itiswell-defined, andtheinfimumontheright-handsideadmitsauniqueminimizer,calledtheproximalpointofw,anddenoted prox (w). Second,theMoreauenvelopeiscontinuouslydifferentiablewith Φ µ (w)=µ(w prox (w)). Fθ/µ ∇(cid:13) θ (cid:13) − Fθ/µ Finally, the stationary points of Φ µ and F coincide. Interestingly, the bound (cid:13) Φ µ (w)(cid:13) ε directly implies
+θ θ (cid:13) ∇ θ (cid:13) ≤ a near-stationarity on F , and hence the original F , in the following variational sense: the proximal point
+θ θ z =prox (w) satisfies [28, Sec. 4.1]:
+(a) z is c F loθs / e µ to w; that is, z w ε/µ,
+(b) z is nearly stationary on(cid:107) F −; th(cid:107)a≤t is dist (cid:0) 0,∂F (z) (cid:1) ε, where ∂F refers to the regular subdifferential,
+θ θ θ and, ≤
+(c) F is uniformly close to F as per (12).
+θ θ Thus, we state the convergence guarantee of our algorithm in the nonsmooth nonconvex case in terms of Φ µ
+θ
+(although it never appears in the algorithm).
+13
+Theorem 4. Let the number of rounds T be fixed and set µ = 2L. Denote ∆F = F (w(0)) infF . Let
+0 θ θ wˆ denote a uniformly random sample from the sequence (cid:0) w(0),...,w(T−1) (cid:1) produced by Algori − thm 3. Then, there exists a learning rate γ depending on the number of rounds T and problem parameters τ,L,G,∆F such
+0 that E (cid:13) (cid:13) (cid:13) ∇ Φ µ θ (wˆ) (cid:13) (cid:13) (cid:13) 2 ≤ (cid:114) ∆ 0 T LG2 +(1 − τ−1)1/3 (cid:18) ∆ 0 T LG (cid:19)2/3 + ∆ T 0 L . Proof Sketch. Let z(t) = prox (w(t)) be the proximal point of w(t). We expand out the recursion Fθ/µ w(t+1) =w(t) γ (cid:80) π(t)(cid:80)τ−1 F (w(t)) to get
+− i∈S i k=0∇ i i,k
+Φ µ (w(t+1)) F (z(t))+ µ(cid:13) (cid:13)z(t) w(t+1) (cid:13) (cid:13) 2
+θ ≤ θ 2(cid:13) − (cid:13)
+µ(cid:13) (cid:13)2 (cid:42) (cid:88) τ (cid:88) −1 (cid:43)
+= F (z(t))+ (cid:13)z(t) w(t)(cid:13) +µγ z(t) w(t), π(t) F (w(t))
+θ 2(cid:13) − (cid:13) − i ∇ i i,k i∈S k=0
+µγ2 (cid:13) (cid:13)(cid:88) τ (cid:88) −1 (cid:13) (cid:13) 2
++ (cid:13) π(t) F (w(t))(cid:13)
+2 (cid:13) (cid:13) i ∇ i i,k (cid:13) (cid:13) i∈S k=0
+=Φ µ (w(t))+ + .
+θ T 1 T 2 The term which carries a O(γ)-coefficient controls the convergence rate while carries a O(γ2)-coefficient
+1 2 and is a nToise term. The latter can be controlled by making the learning rate smTall. We can handle the first term by leveraging a property of F known as weak convexity, meaning that adding a quadratic makes it
+1 θ,S conveTx. In particular, F +(L/2) 2 is convex, so that
+θ,S
+(cid:107)·(cid:107)
+(cid:42) (cid:43)
+(cid:88)
+(cid:48) :=µτγ z(t) w(t), π(t) F (w(t)) T1 − i ∇ i i∈S
+(cid:18) L(cid:13) (cid:13)2 (cid:19)
+µτγ F (z(t)) F (w(t))+ (cid:13)z(t) w(t)(cid:13) ,
+≤
+θ,S
+−
+θ,S 2(cid:13)
+−
+(cid:13) whereweused(11)toconstructasubgradientofF . Thisterm (cid:48) istheresultofasinglestepwithlearning rate τγ rather than τ local steps with learning rate θ, γ S . The differeTn 1 ce (cid:48) is the effect of the drift induced by multiple local steps, which we will handle later. We take an expectTa 1 ti−onTw 1 ith respect to the sampling S of clients (i.e., conditioned on (t) =σ(w(t)), the σ-algebra generated by w(t)). Since z(t) is independent of S
+(i.e., z(t) is (t)-measurable)F, we get F on the right-hand side. Next, we use that z(t) minimizes the strongly
+θ convex righFt hand side of (13) to get Et [ T1 (cid:48)] ≤− µτγ(µ − L) (cid:13) (cid:13) (cid:13) z(t) − w(t) (cid:13) (cid:13) (cid:13) 2 = − τγ(µ µ − L)(cid:13) (cid:13) (cid:13) ∇ Φ µ θ (w(t)) (cid:13) (cid:13) (cid:13) 2 . Next, we bound the effect of the drift using the Cauchy-Schwarz inequality and the smoothness of F ’s as i
+(cid:12) (cid:12) (cid:42) (cid:88) τ (cid:88) −1(cid:16) (cid:17) (cid:43)(cid:12) (cid:12) Et |T 1 −T1 (cid:48) | =µγEt (cid:12) (cid:12) (cid:12) z(t) − w(t), π i (t) ∇ F i (w i ( , t k )) −∇ F i (w(t)) (cid:12) (cid:12) (cid:12) i∈S k=0
+µτγ(µ L) µγL2 (cid:34) (cid:88) τ (cid:88) −1 (cid:35)
+≤ 2
+−
+(cid:107) z(t)
+− w(t)
+(cid:107)
+2+
+2(µ L) Et π i
+(t)
+(cid:107) w i
+(
+, t k
+)
+− w(t)
+(cid:107)
+2
+− i∈S k=0
+τγ(µ − L)(cid:13) (cid:13) Φ µ (w(t)) (cid:13) (cid:13) 2 +O(γ3),
+≤ 2µ (cid:13) ∇ θ (cid:13)
+(cid:104) (cid:105) whereweboundtheclientdriftd(t) =Et (cid:80) i∈S
+π i
+(t)(cid:80)τ k=
+−
+0
+1
+(cid:107) w i
+(
+, t k
+)
+− w(t)
+(cid:107)
+2 =O(γ2)usingstandardtechniques. We plug in µ=2L to get a bound on (cid:48) in terms of (cid:13) (cid:13) Φ µ (w(t)) (cid:13) (cid:13) 2 . A standard argument to handle the noise T1 (cid:13) ∇ θ (cid:13)
+14
+term O(γ2) and telescoping the resulting inequality over t=0,...,T 1 completes the proof. The full
+2 detailTs a≤re given in Appendix A.2. − Convergence: Convex Case. We consider the convergence of function values in the case where each F i is convex. Owing to the non-smoothness of F and F , we consider the following smoothed version of the
+θ θ objective in (7) and the corresponding modification to Algorithm 3. First, define the Kullback-Leibler (KL) divergence between π ∆|S|−1 and the uniform distribution (1/S ,...,1/S ) over S [n] as
+∈ | | | | ⊂
+(cid:88) D (π)= π log(π S ). S i i
+| | i∈S We simply write D(π) when S =[n]. Inspired by [72, 3, 25], we define the smooth counterpart to (7) as
+(cid:40) (cid:41) n
+(cid:88) λ Fν(w)= max π F (w) νD(π) + w 2, (14)
+θ π∈Pθ i=1 i i − 2(cid:107) (cid:107) where ν >0 is a fixed smoothing parameter. We have that Fν(w) F (w) 2νlogn. Finally, we modify line 3 of Algorithm 3 to handle Fν rather than F as | θ − θ |≤
+θ θ
+(cid:40) (cid:41)
+(cid:88)
+π(t) =argmax π F (w(t)) νD (π) . (15) i i S
+−
+π∈Pθ,S i∈S Theorem 5. Suppose each function F is convex and 0<λ<L. Define the condition number κ=(L+λ)/λ i and fix a time horizon T 16κ3/2. Consider the sequence (w(t))T of iterates produced by the Algorithm 3 with line 3 replaced by
+(15≥). Define the averaged iterate t=0 w(t) = (cid:80)t j=0 β j w(i) , where β = (cid:18) 1 γλτ (cid:19)−(1+j) ,
+(cid:80)t β j − 2 i=0 j and w(cid:63) =argmin w∈Rd F θ (w). Then, there exist learning rate γ and smoothing parameter ν depending on the number of communication rounds T as well as problem parameters τ,G,λ,L, w(0) w(cid:63) 2,θ,m, such that
+(cid:107) − (cid:107) the iterate w(T) satisfies the bound
+(cid:18) T (cid:19) G2 G2κ2 B EF
+θ
+(w(T))
+− F
+θ
+(w(cid:63))
+≤
+λ
+(cid:107) w(0)
+− w(cid:63)
+(cid:107)
+2exp
+−16κ3/2
++
+λT
++
+λT2
++
+√θm
+, where we hide absolute constants and factors polylogarithmic in T and problem parameters. Remark 2 (About the Rate). As soon as T (cid:38)κ3/2 (ignoring constants and polylog factors), we achieve the optimal rate of 1/(λT) rate of strongly convex stochastic optimization up to the bias B/√θm. Further, the bias B/√θm due to partial participation is larger at small θ and can be controlled by choosing the cohort size m large enough. In the experiments of Section 7, we obtain meaningful numerical results when m is around 50 or 100 and θ around 1/2, indicating that the worst-case bound (12) can be pessimistic. Proof Sketch of Theorem 5. We start with some additional notation. We absorb the regularization into the clientlossestodefineF˜(w)=F (w)+(λ/2) w 2. Now, considerthesmoothedcounterpartof (7)onasubset i i S [n] with a smoothing parameter ν >0 (cid:107)as (cid:107)
+⊂
+(cid:40) (cid:41)
+(cid:88) Fν (w)= max π F˜(w) νD (π) .
+θ,S π∈Pθ,S i∈S i i − S It follows from the properties of smoothing [72, 3] and composition rules that Fν is L(cid:48)-Lipschitz, where
+θ,S L(cid:48) =L+λ+G2/ν. Finally, let t denote the sigma-algebra generated by w(t) and let Et []:=E[ t ]. F · ·|F
+15
+We start the proof with the decomposition
+τ−1
+(cid:88) (cid:88) w(t+1) w 2 = w(t) w 2 2γ π(t) F˜(w(t)),w(t) w
+(cid:107) − (cid:107) (cid:107) − (cid:107) − i (cid:104)∇ i i,k − (cid:105) i∈S k=0
+(cid:124) (cid:123)(cid:122) (cid:125)
+=:T1
+(cid:13) (cid:13)(cid:88) τ (cid:88) −1 (cid:13) (cid:13) 2
++γ2(cid:13) π(t) F˜(w(t))(cid:13) ,
+(cid:13) (cid:13) i ∇ i i,k (cid:13) (cid:13) i∈S k=0
+(cid:124) (cid:123)(cid:122) (cid:125)
+=:T2 where w is arbitrary. For the first order term , we bound using λ-strong convexity and L-smoothness of F˜
+1 i as T
+(cid:88) (cid:68) (cid:69) (cid:68) (cid:69)
+(cid:48) :=2τγ π(t) F˜(w(t),w(t) w(cid:63) =2τγ Fν (w(t)),w(t) w(cid:63) T1 i ∇ i − ∇ θ,S − i∈S
+(cid:18) (cid:19)
+λ
+2τγ Fν (w(t)) Fν (w(cid:63))+ w(t) w(cid:63) 2 .
+≥ θ,S − θ,S 2(cid:107) − (cid:107) where we used (cid:80) π(t) F (w(t)) = Fν (w(t)) holds with smoothing, analogous to (11), and strong convexity. i∈S i ∇ i ∇ θ,S The gap (cid:48) is due to the effect of the drift from multiple local steps. We bound this term similar to the non-convTe 1 x−caTse 1 of Theorem 4. For the second order term , we rely on the variance bound [61, Prop. 2]
+2 T
+(cid:13) (cid:13)2 ES∼Um (cid:13) (cid:13) (cid:13) (cid:13) (cid:88) π i (t) ∇ F˜ i (w(t)) −∇ F ν θ (w(t)) (cid:13) (cid:13) (cid:13) (cid:13) ≤ 8 θ G m 2 , i∈S where U m is the uniform distribution over subsets S ⊂ [n] of size m, and F ν θ (w) := ES∼Um F θ ν ,S (w) as the expectation of Fν over random subsets S U . Putting these together and taking w =w(cid:63) :=argminF ν gives the inequal θ i , t S y, ∼ m θ F ν (w(t)) F ν (w(cid:63)) γA+γ2B+ (16)
+θ − θ ≤
+(cid:18) (cid:19)
+1 λγτ 1
+1 w(t) w(cid:63) 2 Et w(t+1) w(cid:63) 2,
+γτ − 2 (cid:107) − (cid:107) − γτ (cid:107) − (cid:107) where A,B are problem-dependent constants. We sum this up with the averaging weights β given in the t statement of the theorem to get F ν (w(T)) F ν (w(cid:63)) λ (cid:107) w(0) − w(cid:63) (cid:107) 2 +Aγ+Bγ2.
+θ − θ ≤ exp(λτγT) 1
+− The final missing piece is a bound which allows us to translate statements about the convergence of F ν in
+θ termsoftheconvergenceofF . Weachievethisusingthebiasboundof (12)togetherwiththeapproximation
+θ error of smoothing. Finally, we optimize the choice of the learning rate and smoothing coefficient to give the final statement of the theorem. The details are provided in Appendix A.3.
+5.2 Privacy and Utility Analysis We now analyze the privacy and utility of Algorithm 2. In this section, we assume without loss of generality that S =[n] so that m= S =n. First, we recall the d|efi|nition of concentrated differential privacy [12]. A randomized algorithm satisfies (1/2)ε2-concentrated differential privacy if the Rényi α-divergence D ( (X) (X(cid:48))) αε2/2 foAr
+α A (cid:107)A ≤
+16
+all α (0, ) and all sequences X,X(cid:48) of inputs that differ by the addition or removal of one client’s data. Intuit∈ively,∞the addition or removal of the data contributed by one client should not change the output distribution of the randomized algorithm by much, as measured by the Rényi divergence. A smaller value of
+ε implies a stronger privacy guarantee. This notion of differential privacy can be translated back and forth with the usual one, cf. [14]. Error Criterion. We approximate the (1 θ)-quantile of the n per-client losses (cid:96) =F (w) for i=1,...,n i i b 0 y = th l e < qu l an < tile of < a l hi = era B rch ar ic e a t l h h e is b to in gr e a d m ge − h s. w T it h h e e e n d t g ri e es l h c ( o r, r j re ) s = po (cid:80) nd n i i = n 1 g I t (cid:0) o l 2 i r n (j d − e 1 x )+ j 1 ≤ [b F ] i a (w pp ) r < ox l i 2 m rj a (cid:1) te w s h t e h r e e
+0 1 b j
+(1 θ)-quantil·e·w· ell if the cumulative mass H(j) (1 θ)n. We measure this error o∈f approximation by the diff−erence between the two sides. Formally, we defi≈ne th−e error R (H,j) of approximating the (1 θ)-quantile
+θ of the cumulative function H of a hierarchical histogram with index j [b] by −
+∈
+(cid:12) (cid:12) R θ (H,j)= (cid:12) (cid:12) H(j) (1 θ) (cid:12) (cid:12) . (17)
+(cid:12) n − − (cid:12) We define the best achievable error R∗(H) for estimating the (1 θ)-quantile of the cumulative function H and the best approximating index j∗( θ H) as − R∗(H)= minR (H,j), and j∗(H)=argminR (H,j), (18)
+θ θ θ θ j∈[b] j∈[b] where we assume ties are broken in an arbitrary but deterministic manner — note that j∗(H) is defined here
+θ identically to (8). Lastly, we define the quantile error ∆ (H,Hˆ) of estimating the quantile of the cumulative
+θ function H from that of Hˆ as
+∆ (Hˆ,H)=R (cid:0) H,j∗(Hˆ) (cid:1) . (19)
+θ θ θ Essentially, if the index j∗(Hˆ) computed from the estimate Hˆ corresponds to the (1 θ(cid:48))-quantile of H, the
+θ − quantile error satisfies ∆ (Hˆ,H)= θ θ(cid:48) .
+θ
+| − | Privacy and Utility Analysis. We now analyze the differential privacy bound of Algorithm 2 and the error in the quantile computation. Theorem 6. Fix a δ >0. Suppose that σ 1/2 and c>0 are given, and the modular arithmetic is performed
+(cid:112) ≥ on the base M 2+2cn+2n 2σ2log(16nb/δ). Then, we have:
+≥
+(a) Algorithm 2 satisfies (1/2)ε2-concentrated DP with
+(cid:115) 
+ c2log2b clog b 
+ε=min 2 +ψb, 2 +ψ√2b , nσ2 √nσ
+  where ψ =10 (cid:80)n−1exp (cid:0) 2π2σ2i/(i+1) (cid:1) 10(n 1)exp( 2π2σ2). i=1 − ≤ − −
+(b) With probability at least 1 δ, the quantile error of cumulative function Hˆ returned by Algorithm 2 is at
+− most
+(cid:114)
+4σ2 4b
+∆ (Hˆ,H) R∗(Hˆ)+ log b log
+θ ≤ θ c2n 2 δ where R∗(Hˆ) is the error in the estimation of (1 θ)-quantile of the cumulative function Hˆ.
+θ − Let us interpret the result. The effective noise scale is σ/c. Since the dominant term of the privacy error is ε clog b/(σ√n), we choose σ/c log b/(ε√n), so that the algorithm satisfies (1/2)ε2-concentrated DP. The≈role of 2 c is to avoid the degenerac≈y of t 2 he discrete Gaussian as σ 0. In particular, the theorem requires
+σ 1/2. The error resulting quantile error ∆ (Hˆ,H) is (ignoring co→nstants and log factors)
+θ
+≥ log2b
+∆ (Hˆ,H)(cid:46)R∗(Hˆ)+ .
+θ θ εn
+17
+The quantile error scales as 1/(εn). The total communication cost is O(bnlogM) bits since the dimension of each hierarchical histogram is 2(b 2). If we take σ =O(1) and c=O(ε√n), we require M (cid:38)n3/2, so that the total communication cost is O − (bnlogn). Proof of Theorem 6. We can show that no modular wraparound occurs anywhere in the algorithm with high probability. We assume that it holds for the proof sketch. Thus, for all valid levels r and indices j, we have x˜ (r,j)=cx (r,j)+ξ (r,j) and i i i n n (cid:18) (cid:19) hˆ(r,j)= (cid:88)x˜ i (r,j) = (cid:88) x (r,j)+ ξ i (r,j) . i c c i=1 i=1 The privacy analysis follows from the sensitivity of the sum query. Namely, let X = (x ,...,x ) be a
+1 n sequence and define A(X) = (cid:80)n cx as the (rescaled) sum query. In our case, each x is a hierarchical i=1 i i histogram with log b ones being the only non-zeros, one for each level of the tree. Algorithm 2 adds discrete
+2 Gaussian noise to the sum query to make it differentially private. That is, we get the randomized algorithm
+(X) = A(X)+ (cid:80)n ξ . It was shown in [49, Corollary 12] that (X) is approximately distributed as A Z(A(X),nσ2), so t i h = e 1 de i sired privacy guarantee follows from that ofAthe discrete Gaussian mechanism [14]. NIn particular, for two sequences X and X(cid:48) differing by the addition or removal of a single basis vector x(cid:48), we have that
+αc2 D
+α
+( A
+(X)
+(cid:107)A
+(X(cid:48)))
+≈ D
+α
+( N Z(A(X),nσ2)
+(cid:107)N Z(A(X(cid:48)),nσ2))=
+2nσ2
+. A rigorous analysis of the error, following the recipe of [49], leads to the first part of the theorem; the details can be found in Appendix B. Utility Analysis. The triangle inequality gives
+∆ θ (Hˆ,H) ≤ n 1 (cid:12) (cid:12) (cid:12) H (cid:0) j θ ∗(Hˆ) (cid:1) − Hˆ(cid:0) j θ ∗(Hˆ) (cid:1) (cid:12) (cid:12) (cid:12) + (cid:12) (cid:12) (cid:12) (cid:12)n 1 Hˆ(cid:0) j θ ∗(Hˆ) (cid:1) − (1 − θ) (cid:12) (cid:12) (cid:12) (cid:12)
+(cid:26) 1 (cid:12) (cid:12)(cid:27) max (cid:12)H(j) Hˆ(j)(cid:12) +R∗(Hˆ).
+≤ j∈[b] n(cid:12) − (cid:12) θ Using standard concentration arguments, we show that the first term is, at most (cid:112) 2σ2nlog (b)log(4b/δ),
+2 completing the proof.
+6 Discussion We discuss connections of ∆-FL to risk measures, fair resource allocation, and model personalization. Connection to Risk Measures. The framework of risk measures in economics and finance formalizes the notion of minimizing the worst-case cost over a set of distributions [36, 85, 37]. The superquantile Sθ () is a special case of a risk measure. The ∆-FL framework, which minimizes the superquantile of the per-·client losses, can be extended to other risk measures by minimizing the objective M
+λ F M
+(w):=M(Z(w))+ w 2,
+2(cid:107) (cid:107) where Z(w) is a discrete random variable which takes value F (w) with probability 1/n for i [n]. Another i example of a risk measure is the entropic risk measure, which is defined as M ν (Z)=E[exp ∈ (νZ)]/ν where ent
+ν R+ is a parameter. The entropic risk measure is well defined provided the moment generating function E[ ∈ exp(νZ)] exists, for instance, for sub-Gaussian Z. The analog of ∆-FL with the entropic risk minimizes
+(cid:32) (cid:33) n Fν (w)= 1 log 1 (cid:88) exp (cid:0) νF (w) (cid:1) + λ w 2. ent ν n i 2(cid:107) (cid:107) i=1
+18
+This objective Fν (w) coincides with the one studied recently in [65] under the name Tilted-ERM subsequent ent to the first presentation of this work [57]. Finally, we note that Fν is also related to the smoothed objective ent Fν from (14) as the limit
+θ Fν (w)= limFν(w), ent θ
+θ→0 Maximin Strategy for Resource Allocation. We would like to point out an interesting analogy between distributional robustness and proportional fairness. The superquantile-based objective in Eq. (7) is a maximin-type objective that is reminiscent of maximin objectives used in load balancing and network scheduling [54, 94, 74]. We can draw an analogy between the two worlds, federated learning and resource allocation resp., by identifying errors to rates and clients to users. The maximin fair strategy to resource allocation seeks to treat all users as fairly as possible by making their rates as large and as equal as possible so that no rate can be increased without sacrificing other rates that are smaller or equal [74]. Our superquantile-based ∆-FL framework builds off the maximin decision-theoretic foundation to frame anobjectivethatweoptimize withrespectto parameters ofmodels, andthis, iteratively, overmultiplerounds of client-server communication, while preserving the privacy of each client. This compositional nature of our problem, where we optimize a composition (in the mathematical sense) of a maximin-type objective, a loss function, and model predictions differ with resource allocation in communication networks. Further explorations of the analogy are left for future work. Model Family and Tail Thresholds. Using a single global value of the tail threshold θ for all clients could fail to balance supporting tail clients with fitting the population average. To circumvent this issue, we use a similar idea to the one of [64] where a family of models is trained simultaneously for various levels, and each test client can tune its tail threshold.
+∆-FL vs. Model Personalization. Consider a family of distributions q (x,y) for i=1,...,n over inputi output pairs. From the decomposition q (x,y)=q (x)q (y x), it follows that the heterogeneity of the joint i i i distributions can be due to (a) heterogeneity of the marg|inal distributions q (x) over the input x, or, (b) i heterogeneity of the conditional distributions q (y x), or in other words, the input-output mapping. i If two clients do not agree on their input-ou|tput mapping, a single global model cannot serve both simultaneously. Thus, when training one single global model (as in vanilla FL) or a small number of them
+(as in ∆-FL), there is an implicit assumption that the heterogeneity of q (y x) : i [n] is small. ∆-FL i was designed to handle the heterogeneity of q (x) better than vanilla F{L by|provid∈ing b}etter worst-case i performance on tail clients. On the other hand, the cases where the heterogeneity of the conditional distributions q (y x) is large i requires a separate model per client, or in other words, model personalization. Standard approache|s to model personalization still aim to minimize the average error across all clients [27, 78], similar to the vanilla FL objective. Thus, it can still suffer from disparate performance across clients, including poor performance on some tail clients or data-poor clients. One solution to reduce this disparity is to combine personalization with the ∆-FL objective. We refer to Section 7.6 for numerical experiments. Quantile-based Filtering and Client Availability. We note that the quantile-based filtering of Algorithm 3 implies that only θm tail clients contribute their updates to the global model in the absence of noise
+(thatis,theweightπ(t) inline3ofAlgorithm3issparse; seealsoTheorem3). Inordertoincludetheupdates of m(cid:48) clients after filtering, ∆-FL would require initially sampling an initial cohort of m=m(cid:48)/θ clients. On the other hand, clients in cross-device federated learning are typically available in a diurnal pattern [34, 50], where a large enough number of clients might not be available at certain times of the day. This issue might be exacerbated by ∆-FL’s requirement of m(cid:48)/θ clients per round as compared to FedAvg’s m(cid:48). Devising strategies to dynamically vary the tail threshold θ based on the number of available clients to overcome this issue is an interesting venue for future work.
+19
+Table 1: Dataset description and statistics. Task Dataset #Classes Devices #Data per client Median Max Image Recognition EMNIST 62 1730 179 447 Sentiment Analysis Sent140 2 877 69 549
+7 Experiments In this section, we demonstrate the effectiveness of ∆-FL in handling heterogeneity in federated learning. Our experiments were implemented in Python using automatic differentiation provided by PyTorch while the data was preprocessed using LEAF [13]. The code to reproduce our experiments can be found online. We start by describing the datasets, tasks, and models in Section 7.1. We present numerical comparisons to several recent works – we list them in Section 7.2 and show the experimental results in Section 7.3. We demonstratethat∆-FLprovidesthemostfavorabletradeoffbetweenaverageerrorandtheerrorontailclients in Section 7.4. Next, we compare ∆-FL with model personalization in Section 7.5. Finally, we numerically study the privacy-utility tradeoff of the differentially private quantile computation (in Section 7.6), and of
+∆-FL with end-to-end differential privacy (in Section 7.7). Full details regarding the experiments, as well as additional results, are provided in the supplementary material.
+7.1 Datasets, Tasks and Models We consider two learning tasks. The dataset and task statistics are summarized in Table 1.
+(a) Character Recognition: We use the EMNIST dataset [19], where the input x is a 28 28 grayscale image of a handwritten character, and the output y is its label (0-9, a-z, A-Z). Each clie×nt is a writer of the character x. The weight α assigned to author i is the number of characters written by this author. We i train both a linear model and a convolutional neural network architecture (ConvNet). The ConvNet consists of two 5 5 convolutional layers with max-pooling followed by one fully connected layer. Outputs are vectors of sco×res for each of the 62 classes. The multinomial logistic loss is used to train both models.
+(b) Sentiment Analysis: We use the Sent140 dataset [39] where the input x is a tweet, and the output y = 1 is its sentiment. Each client is a distinct Twitter user. The weight α assigned to user i is the numb±er i of tweets published by this user. We train a logistic regression and a Long-Short Term Memory neural network architecture (LSTM). The LSTM is built on the GloVe embeddings of the words of the tweet [45]. The hidden dimension of the LSTM is the same as the embedding dimension, i.e., 50. We refer to the latter as “RNN”. The loss used to train both models is the binary logistic loss.
+7.2 Algorithms and Hyperparameters We list here the competing approaches we benchmark and discuss their hyperparameters. Algorithms. As discussed in Section 3, a federated learning method is characterized by the objective function, as well as the federated optimization algorithm. We compare ∆-FL with the following baselines:
+(a) Vanilla FL objective: We consider two methods that attempt to minimize the vanilla FL objective: FedAvg [67] and FedProx [63]. The latter augments FedAvg with a proximal term for more stable optimization.
+(b) Heterogeneity-aware objectives: We consider Tilted-ERM [65], which is the analogue of ∆-FL with the entropic risk measure (cf. Section 6) and AFL [71], whose objective is obtained as the limit lim F (w)
+θ→0 θ https://github.com/krishnap25/simplicial-fl
+20
+Table 2: 90th percentile of the distribution of misclassification error (in %) on the test devices. Each entry is the mean over five random seeds while the standard deviation is reported in the subscript. The boldfaced/highlighted entries denote the smallest value for each dataset-model pair. EMNIST Sent140 Linear ConvNet Linear RNN FedAvg 49.66 28.46 46.83 49.67
+0.67 1.07 0.54 3.95 FedAvg-Sub 50.28 27.57 46.60 46.94
+0.77 0.81 0.38 3.84 FedProx 49.15 27.01 46.83 49.86
+0.74 1.86 0.54 4.07 q-FFL 49.90 28.02 46.39 48.66
+0.58 0.80 0.40 4.68 Tilted-ERM 48.59 25.46 46.69 46.54
+0.62 1.49 0.49 3.27 AFL 51.62 45.08 47.52 57.78
+0.28 1.00 0.32 1.19
+∆-FL, θ=0.8 49.10 26.23 46.44 46.46
+0.24 1.15 0.38 4.39
+∆-FL, θ=0.5 48.44 23.69 46.64 50.48
+0.38 0.94 0.41 8.24
+∆-FL, θ=0.1 50.34 25.46 51.39 86.45
+0.95 2.77 1.07 10.95 of the ∆-FL objective. We also consider q-FFL [64], which raises the per-client loss F to the (q+1)th i power, for some q >0. We optimize q-FFL and Tilted-ERM with the federated optimization algorithms proposed in their respective papers. We use q-FFL with q =10 in place of AFL, as it was found to have more stable convergence with similar performance. We compare to one more baseline for the vanilla FL objective. Note that ∆-FL the weight π(t) (see line 3 of Algorithm 3) is sparse, i.e., it is non-zero for only some of the m selected clients, cf. Theorem 3. This is equivalenttoafewernumberofeffectiveclientsperround,whichisθmonaverage. WeuseasbaselineFedAvg with θm clients per round, where m is the number of clients per round in ∆-FL; we call it FedAvg-Sub. Similar to [67], we consider a weighted version of the vanilla FL objective where each client’s loss is weighted by α =N /N, where N is the number of data points on client i and N = (cid:80) N . Similarly, we also i i i i i consider a weighted version of the ∆-FL objective as a superquantile of a random variable that takes value F (w) with probability α . For a fair comparison, we run all algorithms, including ∆-FL, without differential i i privacy. We postpone a study of ∆-FL with differential privacy to Section 7.7. Hyperparameters. We fix the number of clients per round to be m = 100 for each dataset-model pair except for Sent140-RNN, for which we use m = 50. We fixed an iteration budget for each dataset during which FedAvg converged. We tuned a learning rate schedule using grid search to find the smallest terminal loss averaged over training clients for FedAvg. The same iteration budget and learning rate schedule were used for all other methods, including ∆-FL. Each method, except FedAvg-Sub, selected m clients per round for training, as specified earlier. The regularization parameter λ, and the proximal weight of FedProx were tuned to minimize the 90th percentile of the misclassification error on a held-out subset of training clients. We run q-FFL for q 10−3,10−2,...,10 and report q with the smallest 90th percentile of misclassification error on test clients.∈W{e run Tilted-ERM}with a temperature parameter ν 0.1,0.5,1,5,10,50,100,200 and also report ν with the smallest 90th percentile of misclassification erro∈r{on test clients. We optimiz}e
+∆-FL with Algorithm 3 for threshold levels θ 0.8,0.5,0.1 .
+∈{ }
+7.3 Experimental Results We measure in Table 2 the 90th percentile of the misclassification error across the test clients as a measure of the right tail of the per-client performance. We also measure in Table 3 the mean error, which measures the
+21
+Table3: Meanofthedistributionofmisclassificationerror(in%)onthetestdevices. Eachentryisthemean over five random seeds while the standard deviation is reported in the subscript. The boldfaced/highlighted entries denote the smallest value for each dataset-model pair. EMNIST Sent140 Linear ConvNet Linear RNN FedAvg 34.38 16.64 34.75 30.16
+0.38 0.50 0.31 0.44 FedAvg-Sub 34.51 16.23 34.47 29.86
+0.47 0.23 0.03 0.46 FedProx 33.82 16.02 34.74 30.20
+0.30 0.54 0.31 0.48 q-FFL 34.34 16.59 34.48 29.96
+0.33 0.30 0.06 0.56 Tilted-ERM 34.02 15.68 34.70 30.04
+0.30 0.38 0.31 0.25 AFL 39.33 33.01 35.98 37.74
+0.27 0.37 0.08 0.65
+∆-FL, θ=0.8 34.49 16.09 34.41 30.31
+0.26 0.40 0.22 0.33
+∆-FL, θ=0.5 35.02 15.49 35.29 33.59
+0.20 0.30 0.25 2.44
+∆-FL, θ=0.1 38.33 16.37 37.79 51.98
+0.48 1.03 0.89 11.81 average test performance. Our main findings are summarized below.
+∆-FL consistently achieves the smallest 90th percentile error. ∆-FL achieves a 3.3% absolute (12% relative) improvement over any vanilla FL objective on EMNIST-ConvNet. Among the heterogeneity-aware objectives, ∆-FL achieves 1.8% improvement over the next best objective, which is Tilted-ERM. We note that q-FFL marginally outperforms ∆-FL on Sent140-Linear, but the difference 0.05% is much smaller than the standard deviation across runs.
+∆-FL is competitive at multiple values of θ. For EMNIST-ConvNet, ∆-FL with θ 0.5,0.8 is better in90th percentileerrorthanallothermethodswecompareto,and∆-FLwithθ =0.1istie∈d{withTil}ted-ERM, the next best method. We also empirically confirm that ∆-FL interpolates between FedAvg (θ 1) and AFL
+(θ 0). →
+→
+∆-FL works best for larger threshold levels. Weobservethat∆-FLwithθ =0.1isunstableforSent140RNN. This is consistent with Theorem 5, which requires m to be much larger than 1/θ (cf. Remark 2). Indeed, this can be explained by ∆-FL’s sparse re-weighting, which only gives non-zero weights to θm=5 clients on average in each round (cf. Remark 1). Yet, ∆-FL is competitive in terms of average error. Perhaps surprisingly, ∆-FL gets the best test error performance on EMNIST-ConvNet and Sent140-Linear. This suggests that the average test distribution is shifted relative to the average training distribution p . In the other cases, we find that the reduction in
+α mean error is small relative to the gains in the 90th percentile error compared to Vanilla FL methods. Minimizing superquantile loss over all clients performs better than minimizing worst error over all clients. Specifically, AFL which aims to minimize the worst error among all clients, as well as other objectives which approximate it (∆-FL with θ 0, q-FFL with q , Tilted-ERM with ν 0) tend to achieve poor performance. We find that AFL ach→ieves the highest er→ror∞both in terms of 90th →percentile and the mean. ∆-FL offers a more nuanced and more effective approach through an averaging of the tail performances rather than the straightforward pessimistic approach minimizing the worst error among all clients.
+22
+EMNIST EMNIST
+0.150 0.150
+=0.5 =0.5
+0.125 0.125
+0.100 0.100
+0.075 0.075
+0.050 0.050
+0.025 0.025
+0.000 0.000
+0.0 0.1 0.2 0.3 0.4 0.5 0.0 0.1 0.2 0.3 0.4 0.5 Sent140 Sent140
+0.12
+=0.8 0.12 =0.8
+0.10
+0.10
+0.08 0.08
+0.06 0.06
+0.04 0.04
+0.02 0.02
+0.00 0.00
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 FedAvg Tilted-ERM -FL
+10th percentile Mean Value 90th percentile Figure 3: Histogram of misclassification error on test clients for the EMNIST-ConvNet and Sent140-RNN.
+7.4 Exploring the Trade-off Between Average and Tail Error We visualize in Figures 3 and 4 the distribution of test errors to explore the trade-off various methods provide between the average error and the error on tail clients.
+∆-FL yields improved prediction on tail clients. This can be observed from the histogram of ∆-FL in Figure 3, which exhibits thinner tails than FedAvg or Tilted-ERM. We see that the vanilla FL objective of FedAvg sacrifices performance on the tail clients. Tilted-ERM does improve over FedAvg in this regard, but
+∆-FL has a thinner right tail than Tilted-ERM, showing better handling of heterogeneity.
+∆-FL yields improved prediction on data-poor clients. We observe in Figure 4 that Tilted-ERM and q-FFL mainly improve the performance on data-rich clients, that is clients with lots of data. On the other hand, ∆-FL gives a more significant reduction in misclassification error on data-poor clients, that is clients with little data (<200 examples per client).
+7.5 ∆-FL and Model Personalization We now repeat the experiment of Section 7.3 with model personalization for the EMNIST ConvNet model. Setup. We personalize a model to a test client by finetuning a model trained either via FedAvg or ∆-FL on the particular test client’s data at the end of federated training. This simple baseline is competitive with more sophisticated personalization algorithms [78]. Towards this end, we split the data on each test client into a training set used for the finetuning and a test set used to report the evaluation metrics. We finetune the model for 10 epochs with the same local learning rate as at the end of federated training. Results. The numerical results are given in Table 4. We observe that after model personalization, both FedAvg and ∆-FL models perform similarly, often within one standard deviation of each other. The mean error is marginally smaller for FedAvg while the 90th percentile error is marginally smaller for ∆-FL with
+θ =0.8. The gap between these, 0.01 or 0.02 percentage points, is smaller than the standard deviation, 0.1 percentage points.
+23
+0.40
+0.35
+0.30
+0.25
+0.20
+0.15
+0.10
+0.05
+0.00
+0 100 200 300 400 500
+# local data size rorrE
+.csiM tseT FedAvg q-FFL
+0.40
+0.35
+0.285 0.30 0.28
+0.25
+0.20
+0.166 0.166
+0.15
+0.10
+0.064 0.065
+0.05
+0.00
+0 100 200 300 400 500
+# local data size
+0.40
+0.35
+0.30
+0.25
+0.20
+0.15
+0.10
+0.05
+0.00
+0 100 200 300 400 500
+# local data size rorrE
+.csiM tseT Tilted-ERM -FL, =0.5
+0.40
+0.35
+0.275 0.30
+0.25 0.237
+0.20
+0.163 0.155
+0.15
+0.067 0.10 0.081
+0.05
+0.00
+0 100 200 300 400 500
+# local data size Figure 4: Scatter plots of misclassification error on test clients against its data size for the EMNIST-ConvNet.
+7.6 Differentially Private Quantile Estimation We study the privacy-utility tradeoff of Algorithm 2. Setup. Wesamplen=256numbersfromauniformdistributionover[0,B]oraχ2(4)distributionclippedto
+[0,B]with B =10. We considerthe performanceof Algorithm2byvarying thenumberb ofbins andthering size M. Since the communication cost of the protocol scales as the bit width log M, we display it instead in
+2 the plots. Recall that if our algorithm returns the (1 θ(cid:48))-quantile when we aim to find the (1 θ)-quantile, then its quantile error is θ θ(cid:48) , cf. (19). We plot th−e quantile error averaged over θ =0.1,0.2 − ,...,0.9, and the standard deviations a|re−obt|ained from 10 random runs. Results. The results are given in Figure 5. For n=256 and b=64, we find that the quantile error is 0.14 for the uniform distribution at ε 1; this means we might find the 36rd percentile or the 64th percentile instead of the median. This error q≈uickly falls to 0.03 at ε 5 at large enough bit widths. At a bit width of
+10, we incur errors due to the modular wraparound at ε ≈ 5. The results are also qualitatively similar for
+≥ Table 4: Misclassification error % of FedAvg and ∆-FL with model personalization on the EMNIST ConvNet model. Each table entry is the average over 5 random seeds, while the subscript denotes the standard deviation. The boldfaced entries indicate the smallest error in each column. Mean error 90th percentile error Before pers. After pers. Before pers. After pers. FedAvg 16.68 5.43 28.44 8.71
+0.50 0.12 1.15 0.19
+∆-FL, θ=0.8 16.00 5.44 26.26 8.69
+0.44 0.08 1.28 0.12
+∆-FL, θ=0.5 15.50 5.58 23.61 8.76
+0.31 0.07 1.02 0.15
+∆-FL, θ=0.1 16.05 6.17 24.58 9.38
+0.78 0.11 1.96 0.06
+24
+0.4
+0.3
+0.2
+0.1
+0.0
+0.0 2.5 5.0 7.5 10.0 12.5 15.0 17.5 20.0 rorrE elitnauQ n=256,b=64, distribution = Uniform Bit Width = 10 0.4 Bit Width = 12 Bit Width = 16 0.3
+0.2
+0.1
+0.0
+0.0 2.5 5.0 7.5 10.0 12.5 15.0 17.5 20.0 rorrE elitnauQ n=256,b=512, distribution = Uniform B B i i t t W W i i d d t t h h = = 1 1 0 2 0.4 Bit Width = 16 0.3
+0.2
+0.1
+0.0
+0.0 2.5 5.0 7.5 10.0 12.5 15.0 17.5 20.0 rorrE elitnauQ n=256,b=64, distribution = 2 Bit Width = 10 0.4 Bit Width = 12 Bit Width = 16 0.3
+0.2
+0.1
+0.0
+0.0 2.5 5.0 7.5 10.0 12.5 15.0 17.5 20.0 rorrE elitnauQ n=256,b=512, distribution = 2 Bit Width = 10 Bit Width = 12 Bit Width = 16 Figure 5: The quantile error (defined in (19)) incurred by Algorithm 2 to estimate the quantile of n=256 numbers drawn from a uniform or χ2(4) distribution with (ε,10−5)-differential privacy. other settings, although the quantile error is unsurprisingly higher at b>n.
+7.7 End-to-end Differential Privacy with ∆-FL We now compare ∆-FL with FedAvg with end-to-end differential privacy on a synthetic classification dataset. Dataset and Models. The synthetic dataset contains k =10 classes in d=20 dimensions and n=2500 training clients. The class-conditional distribution q(xy = k) = (µ ,I ) is a Gaussian and is the same k d across all the clients while there is a label shift, i.e., q ( | y) varies aNcross clients. For the training clients, we i have q (y)=Dir(0.5) is a Dirichlet distribution with parameter 0.5, while for validation and test clients, we i have q (y) = Dir(0.01). For each client, we sample 100 examples from its data distribution. We refer to i Appendix D for details. Algorithms and Privacy Budgeting. For the FedAvg baseline, we clip the model updates to an (cid:96) norm
+2 bound of C, which is a tunable hyperparameter. We add Gaussian noise (0,σ2I) — thus, each update satisfies σ2/(2C2)-concentrated differential privacy. To get a privacy bounNd acro w ss all the rounds, we use w the generic bounds of [105] for privacy amplification by subsampling and composing the privacy loss across the number of rounds of the algorithm. Given a fixed norm bound C, we select the noise scale σ to get w
+(ε,1/n)-differential privacy over the entire algorithm, where ε is provided as an input, and n is the number of clients. Each round of ∆-FL involves quantile computation and weight aggregation: we use Algorithm 2 to compute the quantile of the losses clipped to a tuned bound B using a hierarchical histogram with b bins. We clip the weight updates to a norm bound C and add Gaussian noise, similar to FedAvg. The total privacy loss is calculated by composing the privacy loss across both the quantile and weight updates, and the number of rounds together with amplification by subsampling using the bounds of [105]. We calculate the noise scales σ of the quantile and σ of the weight update so that (a) the privacy q w budget for the quantile computation to be r times the privacy budget of the weight update, where r is a hyperparameter, and (b) the overall algorithm satisfies (ε,1/n)-differential privacy. We tune the loss bound B, norm bound C, the number of bins b, and the quantile privacy ratio r to attain the best 90th percentile misclassification error across validation clients. For all experiments, we train for 1000 rounds with 100 clients per round and a fixed learning rate of 0.1. For further details on the algorithms, privacy budgeting, and hyperparameters, we refer to Appendix D. Results: ∆-FL gives better tail performance under the same privacy budget. The privacy-utility tradeoff of ∆-FL and FedAvg are shown in Figure 6. We see that ∆-FL with threshold level θ =0.5 has a privacy-utility tradeoff within one standard deviation of FedAvg on the mean misclassification error while being 3.1 percentage points better on the tail misclassification error as measured by its 90th percentile: 55.7% for FedAvg versus 52.6% for ∆-FL at ε=5. Smaller values of θ, such as θ =0.25 are 0.6 percentage points worseonthemeanerrorwhilebeing1.2and4.3percentagepointsbetterthanθ =0.5andFedAvgrespectively on the tail error. We note that the utility of ∆-FL degrades more at smaller ε when compared to FedAvg:
+1.64 percentage points for θ =0.5 versus 0.2 percentage points for FedAvg from ε=10 to ε=3 for the tail error. Despite this effect, the tail error for ∆-FL is smaller than FedAvg even at ε=3.
+25
+0.244
+0.242
+0.240
+0.238
+0.236
+0.234
+5 10 15 20 DP parameter rorrE noitacifissalcsiM Mean error 90th percentile error
+0.56
+0.55
+0.54 FedAvg
+0.53 -FL, =0.5
+-FL, =0.25
+0.52
+0.51
+0.50
+5 10 15 20 DP parameter Figure 6: ∆-FL vs. FedAvg with (ε,1/n)-differential privacy on a synthetic classification task in R 20 with 10 classes and n=2500 clients. The error bars denote the standard deviation across 5 random runs.
+8 Conclusion We present the ∆-FL framework that operates with heterogeneous clients while guaranteeing a minimal predictive performance to each client. ∆-FL relies on a superquantile-based objective, parameterized by a tail threshold level, to optimize the tail statistics of the prediction errors on the client data distributions. We present a federated optimization algorithm that combines differentially private quantile estimation to filter out clients to run federated averaging steps. We derive finite time convergence guarantees of O(1/√T) in T communication rounds in the nonconvex case and O(exp( T/κ3/2)+κ/T) in the strongly convex case with local condition number κ. We establish a utility bound o−f O(log2b/(εn)) for (ε,δ)-differentially private quantile computation. Experimental results on federated learning benchmarks demonstrate the superior performance of ∆-FL over state-of-the-art baselines on the upper quantiles of the error on test clients, with particular improvements on data-poor clients, while being competitive on the mean error with and without differential privacy. Acknowledgements The authors thank Peter Kairouz, Sewoong Oh, and Lun Wang for fruitful discussions. The authors acknowledge support from NSF DMS 2023166, DMS 1839371, CCF 2019844, the CIFAR program “Learning in Machines and Brains”, faculty research awards, and a JP Morgan Ph.D. fellowship. This work has been partially supported by MIAI – Grenoble Alpes, (ANR-19-P3IA-0003). The work was mainly performed while Krishna Pillutla was at the University of Washington, and Yassine Laguel was at the Université Grenoble Alpes. Appendix The outline of the appendix is as follows:
+• Appendix A: Convergence analyses and proofs of Theorems 4 and 5.
+• Appendix C: Privacy analysis and proof of Theorem 6.
+• Appendix C: Full experimental details and additional plots.
+• Appendix D: End-to-end ∆-FL— details and numerical results. A Convergence Analysis Below, we restate and prove Theorem 4 as Theorem 7 in Appendix A.2 and Theorem 5 as Theorem 8 in Appendix A.3,
+26
+Table 5: Review of notation. Function Description F Loss function of client i i F˜ Loss plus regularization on client i: F˜(w)=F (w)+ λ w 2 i i i 2(cid:107) (cid:107) F The main objective of ∆-FL, defined in (7)
+θ F The analogue of F defined on only on a sample S of clients
+θ,S θ F
+θ Averaged minibatch objective: F
+θ
+(w)=ES [F
+θ,S
+(w)] where the expectation is over uniform subsamples of clients of size S =m
+| |
+Φ µ The Moreau envelope of F ; see (13)
+θ θ Fˆ The variant of the ∆-FL objective computed with a tail mean, and
+θ used to formalize the connection between Algorithms 1 and 3 Fν Smoothing of F using the KL divergence; see (14)
+θ θ A.1 Review of Notation Here, we review the notation of the variants of the functions F and F in Table 5. i θ A.2 Convergence Analysis: Non-convex Case We review some definitions of subdifferentials and weak convexity before we get to the main theorem. Nonconvex Subdifferentials. We start by recalling the definition of subgradients for nonsmooth functions
+(in finite dimension), following the terminology of[86]. Consider a function ψ: R d R + and a point w¯ such that ψ(w¯)<+ . The regular (or Fréchet) subdifferential of ψ at w¯ is defi→ned b∪y{ ∞}
+∞
+∂ψ(w¯)= (cid:8) s R d : ψ(w) ψ(w¯)+ s,w w¯) +o( w w¯ ) (cid:9) .
+∈ ≥ (cid:104) − (cid:105) (cid:107) − (cid:107) The regular subdifferential thus corresponds to the set of gradients of smooth functions that are below ψ and coincide with it at w¯. These notions generalize (sub)gradients of both smooth functions and convex functions: it reduces to the singleton ψ(w¯) when ψ is smooth and to the standard subdifferential from convex analysis when ψ is convex. {∇ } Weak Convexity. We recall the notion of weak convexity, which is one way of characterizing functions that are “close” to convex. A function ψ : R d R is said to be η-weakly convex if the function w
+ψ(w)+(η/2) w 2 is convex [73]. The class of we→akly convex functions includes all convex functions (wi(cid:55)→th
+η =0) and al(cid:107)l L (cid:107)-smooth functions (with η =L). Weak convexity also admits an equivalent first-order condition: for any w,z R d and s ∂ψ(w), we have, ∈ ∈
+η
+ψ(z) ψ(w)+ s,z w z w 2. (20)
+≥ (cid:104) − (cid:105)− 2(cid:107) − (cid:107) Weak convexity will feature in our developments in two ways:
+• In our case, both F as well as F are L-weakly convex, since each can be written as the maximum of a
+θ θ,S family of L-smooth functions [28, Lemma 4.2].
+27
+• The prox operator for weakly convex functions is well-defined. Let ψ be a η-weakly convex function. Its proximal or prox operator, with parameter µ>0, is defined as
+(cid:110) µ (cid:111) prox (w)=argmin ψ(z)+ w z 2 .
+ψ/µ 2(cid:107) − (cid:107) z It is well-defined (i.e., the argmin exists and is unique) for µ>η, since the function inside the argmin is
+(µ η)-strongly convex. In non−smooth and nonconvex optimization of weakly convex functions, we are interested in finding stationary points w.r.t. the regular subdifferential, i.e., points w satisfying 0 ∂ψ(w). A natural measure of nearstationarity is, therefore, ∈ dist(0,∂ψ(w))= inf s . s∈∂ψ(w)(cid:107) (cid:107) Moreau Envelope. Given a parameter µ>0, we define the Moreau envelope of F as
+θ
+Φ µ (w)=inf (cid:110) F (z)+ µ w z 2 (cid:111) .
+θ z θ 2(cid:107) − (cid:107) The Moreau envelope is well-defined since F is bounded from below by our assumptions. We will use two
+θ standard properties of the Moreau envelope:
+• Since F is L-weakly convex, we have that its Moreau envelope Φ µ (w) is continuously differentiable for
+θ,S θ
+µ>L with
+(cid:16) (cid:17)
+Φ µ (w)=µ w prox (w) . (21)
+∇ θ − Fθ/µ
+• The stationary points of Φ µ and F coincide and infΦ µ =infF for µ>L.
+θ θ θ θ
+• We have for all µ>0 that Φ µ (w) F (w).
+θ ≤ θ Notation. Let S =S(t) denote the random set of clients selected in round t of Algorithm 3. We define
+(cid:88)
+˜F (w(t))= π(t) F (w(t)), (22)
+∇ θ,S i ∇ i i∈S where π(t) argmax (cid:80) π F (w(t)) is selected as in line 3 of Algorithm 3. A key consequence of the chain ru i le [∈86, Thm. π 1 ∈ 0 P .6θ,]Sis i∈S i i
+˜F (w(t)) ∂F (w(t)). (23)
+θ,S θ,S
+∇ ∈ Convergence Analysis. We now state and prove the convergence result in the nonconvex case. Theorem 7. Fix the number of local steps τ and the number of rounds T, fix µ=2L and set the learning rate
+(cid:40) (cid:114) (cid:18) (cid:19)1/3 (cid:41)
+1 1 ∆F 1 ∆F
+0 0
+γ =min , , ,
+4τL τ√T LG2 τT1/3 32L2G2(1 τ−1)
+− where we denote ∆F =Φ µ (w(0)) infΦ µ F (w(0)) infF . Let wˆ be sampled uniformly at random from
+0 θ − θ ≤ θ − θ w(0),...,w(T−1) . Ignoring absolute constants, we have the bound,
+{ } E (cid:13) (cid:13) (cid:13) ∇ Φ µ θ (wˆ) (cid:13) (cid:13) (cid:13) 2 ≤ (cid:114) ∆F 0 T LG2 + (cid:18) ∆F 0 LG(1 T − τ−1)1/2(cid:19)2/3 + ∆F T 0 L . Proof. We start with some notation. Throughout, we denote z(t) as the proximal point of w(t):
+(cid:26) µ(cid:13) (cid:13)2 (cid:27) z(t) =prox (w(t))=argmin F (z)+ (cid:13)z w(t)(cid:13) . Fθ/µ z
+θ 2(cid:13) − (cid:13)
+28
+Let (t) denote the sigma algebra generated by w(t) and define Et [] = E[ (t)]. By definition, we have thatF z(t) is also (t)-measurable. · · | F We use the uFpdate w(t+1) =w(t) γ (cid:80) π(t)(cid:80)τ−1 F (w(t)) to get
+− i∈S i k=0∇ i i,k
+Φ µ (w(t+1))=min (cid:26) F (z)+ µ(cid:13) (cid:13)z w(t+1) (cid:13) (cid:13) 2 (cid:27)
+θ z θ 2(cid:13) − (cid:13)
+µ(cid:13) (cid:13)2 F (z(t))+ (cid:13)z(t) w(t+1)(cid:13)
+≤
+θ 2(cid:13)
+−
+(cid:13)
+µ(cid:13) (cid:13)2 (cid:42) (cid:88) τ (cid:88) −1 (cid:43)
+=F (z(t))+ (cid:13)z(t) w(t)(cid:13) +µγ z(t) w(t), π(t) F (w(t))
+θ 2(cid:13) − (cid:13) − i ∇ i i,k i∈S k=0
+µγ2 (cid:13) (cid:13)(cid:88) τ (cid:88) −1 (cid:13) (cid:13) 2
++ (cid:13) π(t) F (w(t))(cid:13)
+2 (cid:13) (cid:13) i ∇ i i,k (cid:13) (cid:13) i∈S k=0
+(cid:42) τ−1 (cid:43)
+=Φ µ (w(t))+µγ z(t) w(t), (cid:88) π(t) (cid:88) F (w(t))
+θ − i ∇ i i,k i∈S k=0
+(cid:124) (cid:123)(cid:122) (cid:125)
+=:T1
+(24)
+µγ2 (cid:13) (cid:13)(cid:88) τ (cid:88) −1 (cid:13) (cid:13) 2
++ (cid:13) π(t) F (w(t))(cid:13) .
+2 (cid:13) (cid:13) i ∇ i i,k (cid:13) (cid:13) i∈S k=0
+(cid:124) (cid:123)(cid:122) (cid:125)
+=:T2 For , we consider the effect of a single update with a learning τγ:
+1 T
+(cid:42) (cid:43)
+(cid:88)
+(cid:48) :=µτγ z(t) w(t), π(t) F (w(t)) , T1 − i ∇ i i∈S so that the difference (cid:48) is the effect of the drift introduced by taking multiple local steps. We bound the first order term (cid:48) T, 1 t−heTd 1 rift term (cid:48) and the second order term separately. T1 T 1 −T1 T 2 Bounding the first order term (cid:48). By definition of the weights π(t), we have (cid:80) π(t) F (w(t)) = T1 i i∈S i ∇ i
+˜F (w(t)) ∂F (w(t)), see also (22). This allows us to invoke the weak convexity of F , in particular
+θ,S θ,S θ,S
+(∇20), to boun∈d
+(cid:48) (cid:68) (cid:69) L(cid:13) (cid:13)2 T1 = z(t) w(t), ˜F (w(t)) F (z(t)) F (w(t))+ (cid:13)z(t) w(t)(cid:13) .
+µτγ − ∇ θ,S ≤ θ,S − θ,S 2(cid:13) − (cid:13) Taking an expectation conditioned on (t) (i.e., over the randomness in S), we get Et [F θ,S (w(t))]=F θ (w(t)). Further, since z(t) is (t)-measurable,Fwe also have Et [F θ,S (z(t))]=F θ (z(t)). That gives, F
+1 (cid:18) µ(cid:13) (cid:13)2 (cid:19) µ L(cid:13) (cid:13)2
+µτγ Et [ T1 (cid:48)] ≤ F θ (z(t))+ 2 (cid:13) (cid:13) z(t) − w(t)(cid:13) (cid:13) − F θ (w(t)) − − 2 (cid:13) (cid:13) z(t) − w(t)(cid:13) (cid:13) . Note that the function
+µ(cid:13) (cid:13)2 h(z):=F (z)+ (cid:13)z w(t)(cid:13)
+θ 2(cid:13)
+−
+(cid:13) is (µ L)-strongly convex and z(t) is its minimizer. This gives,
+−
+µ L(cid:13) (cid:13)2 h(w(t)) h(z(t)) − (cid:13)z(t) w(t)(cid:13) ,
+− ≥ 2 (cid:13) − (cid:13) so that we have the bound
+µτ 1 γ Et [ T1 (cid:48)] ≤− (µ − L) (cid:13) (cid:13) (cid:13) z(t) − w(t) (cid:13) (cid:13) (cid:13) 2 (2 = 1) − µ µ − 2 L(cid:13) (cid:13) (cid:13) ∇ Φ µ θ (w(t)) (cid:13) (cid:13) (cid:13) 2 . (25)
+29
+Bounding the effect of the drift (cid:48). The contribution of kth local step to the drift (cid:48) can be bounded as T 1 −T1 T 1 −T1
+(cid:12)(cid:42) (cid:43)(cid:12)
+(cid:12) (cid:88) (cid:16) (cid:17) (cid:12)
+(cid:12) z(t) w(t), π(t) F (w(t)) F (w(t)) (cid:12)
+(cid:12) (cid:12) − i ∇ i i,k −∇ i (cid:12) (cid:12) i∈S
+(cid:13) (cid:13)2
+(i) µ L(cid:13) (cid:13)2 1 (cid:13)(cid:88) (cid:16) (cid:17)(cid:13)
+− (cid:13)z(t) w(t)(cid:13) + (cid:13) π(t) F (w(t)) F (w(t)) (cid:13)
+≤ 2 (cid:13) − (cid:13) 2(µ L)(cid:13) (cid:13) i ∇ i i,k −∇ i (cid:13) (cid:13)
+− i∈S
+(ii) µ L(cid:13) (cid:13)2 1 (cid:88) (cid:13) (cid:13)2
+− (cid:13)z(t) w(t)(cid:13) + π(t)(cid:13) F (w(t)) F (w(t))(cid:13)
+≤ 2 (cid:13) − (cid:13) 2(µ L) i (cid:13) ∇ i i,k −∇ i (cid:13)
+− i∈S
+(iii) µ L(cid:13) (cid:13)2 L2 (cid:88) (cid:13) (cid:13)2
+− (cid:13)z(t) w(t)(cid:13) + π(t)(cid:13)w(t) w(t)(cid:13) .
+≤ 2 (cid:13) − (cid:13) 2(µ L) i (cid:13) i,k− (cid:13)
+− i∈S Here, we first used (i) the Cauchy-Schwarz inequality, (ii) Jensen’s inequality, and (iii) the smoothness of F . i Summing this over k, we get the bound Et |T 1 −T1 (cid:48) |≤ τγ(µ 2µ − L)(cid:13) (cid:13) (cid:13) ∇ Φ µ θ (w(t)) (cid:13) (cid:13) (cid:13) 2 + 2( µ µ γL2 L) d(t)
+−
+τγ(µ − L)(cid:13) (cid:13) Φ µ (w(t)) (cid:13) (cid:13) 2 + 4µτ3γ3G2 (1 τ−1), (26)
+≤ 2µ (cid:13) ∇ θ (cid:13) µ L −
+− where we bounded d(t) :=Et (cid:20) (cid:80) i∈S
+(cid:80)τ k=
+−
+0
+1π i
+(t) (cid:13) (cid:13)
+(cid:13) w i
+(
+, t k
+)
+− w(t) (cid:13) (cid:13)
+(cid:13)
+2 (cid:21) by Theorem 12. Bounding the second order term . Next, we bound as
+2 2 T T
+µγ2 (cid:13) (cid:13)(cid:88) τ (cid:88) −1 (cid:13) (cid:13) 2 µγ2τ (cid:88) τ (cid:88) −1(cid:13) (cid:13)2
+= (cid:13) π(t) F (w(t))(cid:13) π(t) (cid:13) F (w(t))(cid:13) T 2 2 (cid:13) (cid:13) i ∇ i i,k (cid:13) (cid:13) ≤ 2 i (cid:13) ∇ i i,k (cid:13) i∈S k=0 i∈S k=0
+µγ2τ2G2
+, (27)
+≤ 2
+(cid:13) (cid:13)2 where we used Jensen’s inequality and (cid:13) F (w(t))(cid:13) G2 since F is G-Lipschitz.
+(cid:13) ∇ i i,k (cid:13) ≤ i One step update and telescoping the bound. Plugging (25) to (27) into (24), we have, Et (cid:104) Φ µ θ (w(t+1)) (cid:105) ≤ Φ µ θ (w(t)) − τγ(µ 2µ − L)(cid:13) (cid:13) (cid:13) ∇ Φ µ θ (w(t)) (cid:13) (cid:13) (cid:13) 2
+µγ2τ2G2 (cid:18) 8L2γ (cid:19)
++ 1+ (τ 1) .
+2 µ L −
+− Finally, taking an unconditional expectation, summing this up over t=0 to T 1 and rearranging gives us the bound − E (cid:13) (cid:13) (cid:13) ∇ Φ µ θ (wˆ) (cid:13) (cid:13) (cid:13) 2 ≤ 4 τ ∆ γ F T 0 +4τγLG2(1+8Lγ(τ − 1)) , where we plugged in µ=2L. Plugging in the choice of γ (cf. Theorem 14) completes the proof. A.3 Convergence Analysis: Strongly Convex Case The fully specified version of Theorem 5 is the following.
+30
+Theorem 8 (Convergencerate,StronglyConvexCase). Suppose that each F is convex and the regularization i parameter satisfies 0<λ<L. Define notation κ=(L+λ)/λ, w(cid:63) =argmin F (w) and ∆ = w(0) w(cid:63) 2. w θ 0 (cid:107) − (cid:107) Assume also that the number of rounds is T 16κ3/2. Fix a smoothing parameter ν >0 as
+≥
+ν =
+8G2δ(cid:0)
+1 32κ2δ (cid:1) ,
+λ ∨ where δ >0 is given by
+(cid:26) 1 1 (cid:18) CT (cid:19) 1 (cid:18) CT2 (cid:19)(cid:27)
+δ =min , 1 log , 1 log ,
+16κ3/2 T ∨ logm T ∨ κ2logm and C =λ2∆ /G2. Letting L(cid:48) =L+λ+G2/ν, fix a learning rate
+0
+(cid:40) 1 1 1 1 (cid:18) CT2 (cid:19)2 (cid:41)
+γ =min , , (1 logCθmT), 1 log .
+4τL(cid:48) 8τκ√2λL(cid:48) λτT ∨ λτT ∨ κ2(1 τ−1)
+− Consider the sequence (w(t))T produced by Algorithm 3 run with smoothing parameter ν and learning rate γ t=0 chosen as above, and the corresponding averaged iterate
+(cid:80)T w(t)
+(cid:16)
+1 λτγ
+(cid:17)−(1+t) w(T) := t=0 − 2 .
+(cid:80)T
+(cid:16)
+1 λτγ
+(cid:17)−(1+r) r=0 − 2 Then, ignoring absolute constants, we have,
+(cid:104) (cid:105) (cid:18) T (cid:19) B E F θ (w(T)) − F θ (w(cid:63)) ≤ λ (cid:107) w(0) − w(cid:63) (cid:107) 2exp −16κ3/2 + √θm G2 (cid:18) 1 (cid:19) (cid:18) λ2∆ θmT (cid:19)
+0
++ +logm 1 log
+λT θm ∨ G2
++ G2κ2
+(cid:0) 1 τ−1+logm (cid:1)
+(cid:18)
+1 log
+λ2∆
+0 T2(cid:19)2
+.
+λT2 − ∨ G2κ2 We review some notation before giving the proof. Notation. Analogous to the smoothing Fν of F , we define the smoothing of the sample version F as
+θ θ θ,S
+(cid:40) (cid:41)
+(cid:88) λ Fν (w)= max π F (w) νD (π) + w 2, (28)
+θ,S π∈Pθ,S i∈S i i − S 2(cid:107) (cid:107) From Danskin’s theorem [6, Proposition B.25], we get the expression of its gradient as
+(cid:88) Fν (w(t))= π(t) F˜(w(t)), (29)
+∇ θ,S i ∇ i i∈S where π(t) attains the unique argmax in (28) (see also (15) for the definition). We define the averaged superquantile as F ν
+θ
+(w)=ES∼Um [F
+θ
+ν
+,S
+(w)], (30) where U is the uniform distribution over subsets of [n] of size m. Finally, let w(cid:63) =argmin F ν (w). m w θ We also define the notion of client drift as
+(cid:34) (cid:88) τ (cid:88) −1 (cid:12) (cid:12) (cid:35) d(t) :=ES∼Um π i
+(t)
+(cid:107) w i
+(
+, t k
+)
+− w(t)
+(cid:107)
+2(cid:12)
+(cid:12) (cid:12)F t
+. (31) i∈S k=0
+31
+P to ro g o e f t of Theorem 8. Wedenote Et [ · ]:=E[ ·|F t ]. Weexpandtheupdatew(t+1) =w(t) − γ (cid:80) i∈S π i (t)(cid:80) k τ = − 0 1 ∇ F˜ i (w i ( , t k ))
+(cid:88) τ (cid:88) −1(cid:68) (cid:69) w(t+1) w(cid:63) 2 = w(t) w(cid:63) 2 2γ π(t) F˜(w(t)),w(t) w(cid:63)
+(cid:107) − (cid:107) (cid:107) − (cid:107) − i ∇ i i,k − i∈S k=0
+(cid:124) (cid:123)(cid:122) (cid:125)
+=:T1
+(32)
+(cid:13) (cid:13)(cid:88) τ (cid:88) −1 (cid:13) (cid:13) 2
++γ2(cid:13) π(t) F˜(w(t))(cid:13) .
+(cid:13) (cid:13) i ∇ i i,k (cid:13) (cid:13) i∈S k=0
+(cid:124) (cid:123)(cid:122) (cid:125)
+=:T2 In order to bound the first order term , we analyze the effect of a single local step of learning rate τγ rather
+1 than τ local steps of learning rate γ. TThe analogue of the first order term , in this case, would be
+1 T
+(cid:48) :=2τγ (cid:88) π(t) (cid:68) F˜(w(t)),w(t) w(cid:63) (cid:69)(2 = 9) 2τγ (cid:68) Fν (w(t)),w(t) w(cid:63) (cid:69) . T1 i ∇ i − ∇ θ,S − i∈S The difference (cid:48) is the effect of the drift from taking multiple local steps. From here, the proof consists of the followingT 1 st−epTs 1 :
+1. bound the first order term (cid:48),
+2. bound the drift (cid:48), T1
+3. bound the seconTd 1 o−rdTe 1 r term ,
+2
+4. combine these to get the effectTof one communication round t,
+5. unroll the bound over all communication rounds t=1,...,T,
+6. connect optimization on the surrogate F ν to the original F ,
+θ θ
+7. optimize the choices of the learning rate γ and smoothing parameter ν.
+1. Bounding the first order term (cid:48). We use the λ-strong convexity (cf. (44)) of Fν to get T1 θ,S
+(cid:18) (cid:19)
+λ
+(cid:48) 2τγ Fν (w(t)) Fν (w(cid:63))+ w(t) w(cid:63) 2 . T1 ≥ θ,S − θ,S 2(cid:107) − (cid:107) Taking an expectation w.r.t. the sampling S (i.e., conditioned on ) gives t F
+(cid:18) (cid:19) Et [ T1
+(cid:48)]
+≥
+2τγ F ν
+θ
+(w(t))
+− F ν
+θ
+(w(cid:63))+ λ
+2(cid:107) w(t)
+− w(cid:63)
+(cid:107)
+2 . (33)
+2. Bounding the effect of the drift (cid:48). The contribution of kth local step to the drift (cid:48) can be bounded as T 1 −T1 T 1 −T1
+(cid:12)(cid:42) (cid:43)(cid:12)
+(cid:12) (cid:88) (cid:16) (cid:17) (cid:12)
+(cid:12) π(t) F˜(w(t)) F˜(w(t)) ,w(t) w(cid:63) (cid:12)
+(cid:12) (cid:12) i ∇ i i,k −∇ i − (cid:12) (cid:12) i∈S
+(cid:13) (cid:13)2
+(i) λ(cid:13) (cid:13)2 1(cid:13)(cid:88) (cid:16) (cid:17)(cid:13)
+(cid:13)w(t) w(cid:63)(cid:13) + (cid:13) π(t) F˜(w(t)) F˜(w(t)) (cid:13)
+≤ 4(cid:13) − (cid:13) λ(cid:13) (cid:13) i ∇ i i,k −∇ i (cid:13) (cid:13) i∈S
+(ii) λ(cid:13) (cid:13)2 1 (cid:88) (cid:13) (cid:13)2
+(cid:13)w(t) w(cid:63)(cid:13) + π(t)(cid:13) F˜(w(t)) F˜(w(t))(cid:13)
+≤ 4(cid:13) − (cid:13) λ i (cid:13) ∇ i i,k −∇ i (cid:13) i∈S
+(iii) λ(cid:13) (cid:13)2 (L+λ)2 (cid:88) (cid:13) (cid:13)2
+(cid:13)w(t) w(cid:63)(cid:13) + π(t)(cid:13)w(t) w(t)(cid:13) .
+≤ 4(cid:13) − (cid:13) λ i (cid:13) i,k− (cid:13) i∈S
+32
+Here, wefirstused(i)theCauchy-Schwarzinequality, (ii)Jensen’sinequality, and(iii)the(L+λ)-smoothness of F˜. Summing this over k, we get the bound i
+λτγ 2γ(L+λ)2 Et |T 1 −T1
+(cid:48)
+|≤ 2 (cid:107) w(t)
+− w(cid:63)
+(cid:107)
+2+
+λ d(t), (34) where we use the definition of d(t) from (31).
+3. Bounding the second order term . By using the expression (29) of Fν , we get T 2 ∇ θ,S
+(cid:13) (cid:13)(cid:88) τ (cid:88) −1 (cid:13) (cid:13) 2
+(cid:13) π(t) F˜(w(t))(cid:13)
+(cid:13) (cid:13) i ∇ i i,k (cid:13) (cid:13) i∈S k=0
+(cid:13) (cid:13)(cid:88) τ (cid:88) −1(cid:16) (cid:17) (cid:13) (cid:13) 2 (cid:13) (cid:13)(cid:88) τ (cid:88) −1 (cid:13) (cid:13) 2
+2(cid:13) π(t) F˜(w(t)) F˜(w(t)) (cid:13) +2(cid:13) π(t) F˜(w(t))(cid:13)
+≤ (cid:13) (cid:13) i ∇ i i,k −∇ i (cid:13) (cid:13) (cid:13) (cid:13) i ∇ i (cid:13) (cid:13) i∈S k=0 i∈S k=0
+(cid:88) τ (cid:88) −1(cid:13) (cid:13)2 (cid:13) (cid:13)2
+2τ π(t) (cid:13) F˜(w(t)) F˜(w(t))(cid:13) +2τ2(cid:13) Fν (w(t))(cid:13) .
+≤ i (cid:13) ∇ i i,k −∇ i (cid:13) (cid:13) ∇ θ,S (cid:13) i∈S k=0 For the first term, we invoke (L+λ)-smoothness of F˜ and take an expectation to get 2τ(L+λ)2d(t). For the i
+(cid:104) (cid:105) second term, we have from the definition (30) of F ν
+θ that Et
+∇ F
+θ
+ν
+,S
+(w(t)) =
+∇ F ν
+θ
+(w(t)). Therefore, we can write Et (cid:13) (cid:13) (cid:13) ∇ F θ ν ,S (w(t)) (cid:13) (cid:13) (cid:13) 2 =Et (cid:13) (cid:13) (cid:13) ∇ F θ ν ,S (w(t)) −∇ F ν θ (w(t)) (cid:13) (cid:13) (cid:13) 2 + (cid:13) (cid:13) (cid:13) ∇ F ν θ (w(t)) (cid:13) (cid:13) (cid:13) 2
+8G2
++2L(cid:48)
+(cid:16) F ν (w(t)) F ν (w(cid:63))
+(cid:17)
+,
+≤ θm θ − θ where we invoked Theorem 9 to bound the variance of the partial superquantile and L(cid:48)-smoothness of F ν.
+θ Overall, this gives us Et [ T 2 ] ≤ 2γ2τ(L+λ)2d(t)+ 16τ θ 2 m γ2G2 +4τ2γ2L(cid:48) (cid:16) F ν θ (w(t)) − F ν θ (w(cid:63)) (cid:17) . (35)
+4. One-step update. Plugging (33) to (35) into (32), we get,
+(cid:18) (cid:19)
+λτγ Et w(t+1) w(cid:63) 2 1 w(t) w(cid:63) 2
+(cid:107) − (cid:107) ≤ − 2 (cid:107) − (cid:107)
+(cid:16) (cid:17)
+(2τγ 4γ2τ2L(cid:48)) F ν (w(t)) F ν (w(cid:63))
+− − θ − θ
+16τ2γ2G2
++ +2γ(L+λ)2(τγ+λ−1)d(t).
+θm Next, we plug in the bound on d(t) from Theorem 12 and simplify some coefficients. First, since γ (4τL(cid:48))−1 we have 2τγ 4γ2τ2L(cid:48) τγ. Likewise, the same condition on γ also implies τγ +1/λ 2/ ≤ λ. Finally,
+γ (cid:0) 8τκ√2λ − L(cid:48) (cid:1)−1 impli ≥ es 64L(cid:48)(L+λ)2τ2γ2/λ 1/2. As a result, we arrive at the bound ≤
+≤ ≤
+(cid:18) (cid:19) F ν
+θ
+(w(t))
+− F ν
+θ
+(w(cid:63))
+≤ τ
+2
+γ
+1
+−
+λτ
+2
+γ
+(cid:107) w(t)
+− w(cid:63)
+(cid:107)
+2
+− τ
+2
+γ Et
+(cid:107) w(t+1)
+− w(cid:63)
+(cid:107)
+2
+32τγG2 64G2(L+λ)2τ2(1 τ−1)γ2 (cid:18) 8 (cid:19)
++ + − 4+ .
+θm λ θm
+(cid:124) (cid:123)(cid:122) (cid:125)
+=:T3
+33
+5. Telescoping the bound. By telescoping the one-step improvement and convexity, we get, Next, we use convexity to get
+(cid:104) (cid:105) E F ν (w(T)) F ν (w(cid:63))
+θ − θ
+1 (cid:88) T (cid:18) 1 λτγ (cid:19)−(1+t) E (cid:104) F ν (w(t)) F ν (w(cid:63)) (cid:105)
+≤ (cid:80)T (cid:16) 1 λγτ (cid:17)−(1+t) t=0 − 2 θ − θ t=0 − 2
+2 (cid:13) (cid:13)w(0) w(cid:63) (cid:13) (cid:13) 2
+− + .
+≤ τγ (cid:80)T (cid:16) 1 λτγ (cid:17)−(1+t) T 3 t=0 − 2 Now, we can bound the denominator from below with
+(cid:88) T (cid:18) λτγ (cid:19)−(1+t) 2 (cid:32)(cid:18) λτγ (cid:19)−(T+1) (cid:33) 2 (cid:16) (cid:17)
+1 1 1 e(T+1)λτγ 1 .
+− 2 ≥ λτγ − 2 − ≥ τγλ − t=0 This gives us the final bound E (cid:104) F ν θ (w(T)) − F ν θ (w(cid:63)) (cid:105) ≤ eTλτ λ γ 1(cid:107) w(0) − w(cid:63) (cid:107) 2+ T 3 . (36)
+−
+6. Translating the results from the surrogate F ν to the original F . We optimize the surrogate F ν
+θ θ θ defined on a sample S of clients rather than the full superquantile. The effect of this shows up in both sides of (36). We bound the left-hand side by noting that the bias introduced by the surrogate is bounded as in Theorem 9. For the right hand side, we use the λ-strong convexity of F and Theorem 9 to get
+θ w(0) w(cid:63) 2 2 w(0) w(cid:63) 2+2 w(cid:63) w(cid:63) 2
+(cid:107) − (cid:107) ≤ (cid:107) − (cid:107) (cid:107) − (cid:107)
+4
+2 w(0) w(cid:63) 2+ (F (w(cid:63)) F (w(cid:63)))
+θ θ
+≤ (cid:107) − (cid:107) λ −
+2 w(0) w(cid:63) 2
+≤ (cid:107) − (cid:107)
++ 4 (cid:16) F (w(cid:63)) F ν (w(cid:63))+F ν (w(cid:63)) F ν (w(cid:63))+F ν (w(cid:63)) F (w(cid:63)) (cid:17)
+λ θ − θ θ − θ θ − θ
+(cid:18) (cid:19)
+4 2B
+2 w(0) w(cid:63) 2+ +4νlogm ,
+≤ (cid:107) − (cid:107) λ √θm since F ν (w(cid:63)) F ν (w(cid:63)) 0. Plugging this into (36) gives us the bound
+θ − θ ≤
+(cid:104) (cid:105) 2λ 32τγG2 E F θ (w(T)) − F θ (w(cid:63)) ≤ eTλτγ 1(cid:107) w(0) − w(cid:63) (cid:107) 2+ θm +
+64G2(L − +λ)2τ2(1 τ−1)γ2 (cid:18) 8 (cid:19)
+− 4+ + (37)
+λ θm
+(cid:18) (cid:19)(cid:18) (cid:19)
+2B 8
++4νlogm 1+ .
+√θm eTλτγ 1
+−
+7. Hyperparameter optimization. To complete the proof from here, it remains to optimize the learning rate γ and the smoothing parameter ν by repeated invocations of Theorem 13.
+34
+We start with the learning rate γ. Ignoring absolute constants gives us the bound
+(cid:104) (cid:105) G2 (cid:18) λ2∆ θm (cid:19) E F θ (w(T)) − F θ (w(cid:63)) ≤ λ∆ 0 exp( − λτΓT)+ θmλT 1 ∨ log G 0 2 T
++ G2κ2
+(1 τ−1)
+(cid:18)
+1 log
+λ2∆
+0 T2(cid:19)2
+(38)
+λT2 − ∨ G2κ2 B
++ +νlogm,
+√θm where we take
+(cid:40) (cid:41)
+√λ 1
+Γ=min ,
+8τ(L+λ)√2L(cid:48) 4τL(cid:48) This application of Theorem 13 requires λτΓT 1, which we will ensure later, based on the choice of ν. Recall that Γ depends on L(cid:48), which itself depend≥s on ν as L(cid:48) =L+λ+G2/ν. Next, we set ν. We will require that ν G2/(λκ), so that the two terms from (38) that depend on ν can be bounded as ≤
+  T
+λ∆
+0 exp( λτΓT)+νlogm λ∆
+0 exp
+(cid:113)
++νlogm. (39)
+− ≤ − 16κ G2 8G2
+λν ∨ λν To simplify the expression, we substitute
+1 (cid:40) (cid:114) G2 8G2 (cid:41) (cid:26) 256κ2G2δ2 8G2δ (cid:27)
+=max 16κ , ν =max , .
+δ λν λν ⇐⇒ λ λ The bound ν G2/(λκ) translates to the upper bound δ (16κ3/2)−1. Therefore, the right hand side of
+(39) can be fur≤ther upper bounded by using max a,b a ≤ +b as
+{ }≤
+8G2logm 256G2κ2G2logm
+λ∆ exp( δT)+ δ+ δ2.
+0
+− λ λ We now invoke Theorem 13 under the condition T 16κ3/2. We set δ as specified by Theorem 13 — this gives us the choices of the smoothing parameter ν ≥and learning rate γ. Plugging this into (38) gives the bound of the theorem. Finally, to complete the proof, it can be verified that the condition λτΓT 1 is guaranteed by T 16κ3/2. ≥
+≥ A.4 Intermediate Results We present some prerequisites and some intermediate results which are required in the convergence proofs. Note that for any S [n] of size m, the partial superquantile is differentiable at w with :
+⊂
+(cid:88) Fν (w)= π(cid:63) F˜(w) (40)
+∇ θ,S i∇ i i∈S where π(cid:63) denotes the solution to the maximization
+(cid:88) Fν (w)= max π F˜(w) νD (π)
+θ,S π∈Pθ,Si∈S i i − S Bias and variance of the partial superquantile. We use the partial superquantile defined on a subset S [n] to approximate the full superquantile. We start with the quality of this approximation.
+⊂
+35
+Property 9. Let U m denote the uniform distribution over all subsets of [n] of size m. For any w R d, we
+∈ have
+(cid:12) (cid:12)F ν (w) F (w) (cid:12) (cid:12) B +2νlogm,
+(cid:12) θ − θ (cid:12) ≤ √θm ES∼Um (cid:13) (cid:13) (cid:13) ∇ F θ ν ,S (w) −∇ F ν θ (w) (cid:13) (cid:13) (cid:13) 2 ≤ 8 θ G m 2 . Smoothing and smoothness constants. The following result is standard [3, Theorem 4.1, Lemma 4.2]. Property 10. For every ν >0, we have that Fν and F ν are L(cid:48)-smooth with L(cid:48) =L+λ+ G2.
+θ,S θ,S ν Boundingthe gradientdissimilarity. Boundingofthevarianceofgradientestimatorsisakeyassumption in the analysis of stochastic gradient methods (see e.g. the textbook [10]). In the centralized setting, when a stochastic objective Eξ [f(w,ξ)], it is standard to assume for a given estimator g w of wEf(w,ξ) that there exists some constants M 1 ,M 2 >0 such that for all w R d, ∇
+∈ E[g w
+] 2 M
+1 or E[g w
+] 2 M
+1
++M
+2 wE[f(w,ξ] 2 .
+(cid:107) (cid:107) ≤ (cid:107) (cid:107) ≤ (cid:107)∇ (cid:107) In the federated setting, the use of a subset S [n] of clients in each round induces noise on the estimation of the average gradient over the whole network.⊂Thus, such assumption translates into a bound on the gradient dissimilarity among the clients [51, 99]:
+(cid:13) (cid:13)2 n 1 (cid:88) (cid:13) (cid:13) (cid:13) ∇ F˜ i (w) (cid:13) (cid:13) (cid:13) 2 ≤ M 1 +M 2 (cid:13) (cid:13) (cid:13) (cid:13)n 1 (cid:88) ∇ F˜ i (w) (cid:13) (cid:13) (cid:13) (cid:13) . i∈[n] (cid:13) i∈[n] (cid:13) In this work, we also consider the minimization of the global loss Fν by a stochastic algorithm based on
+θ partialparticipationoftheclients,withtheadditionaldifficultythatweonlyhaveaccesstoabiasedestimator F ν of the loss Fν and its gradient. In particular, the adaptive reweighting of the clients selected at each
+θ θ round does not permit the direct use of such an assumption. We show instead in the next lemma that the variance of the stochastic gradient estimator can also be bounded, thanks to the Lipschitz assumption. Proposition 11 (Gradient Dissimilarity). Consider the quantities π(t),w(t) from Algorithm 3. We have, E (cid:34) (cid:88) π i (t) (cid:13) (cid:13) (cid:13) ∇ F˜ i (w(t)) (cid:13) (cid:13) (cid:13) 2 (cid:12) (cid:12) (cid:12) (cid:12) (cid:12)F t (cid:35) ≤ (cid:18) 4+ θ 8 m (cid:19) G2+ (cid:13) (cid:13) (cid:13) ∇ F ν θ (w(t)) (cid:13) (cid:13) (cid:13) 2 . i∈S Proof. We drop the superscript t throughout this proof. By centering the second moment (cf. (43)), we have:
+(cid:88) π i (cid:13) (cid:13) (cid:13) ∇ F˜ j (w) (cid:13) (cid:13) (cid:13) 2 = (cid:88) π i (cid:13) (cid:13) (cid:13) ∇ F˜ i (w) −∇ F θ ν ,S (w) (cid:13) (cid:13) (cid:13) 2 + (cid:13) (cid:13) ∇ F θ ν ,S (w) (cid:13) (cid:13) 2 i∈S i∈S
+(cid:13) (cid:13)2
+(cid:13) (cid:13)
+= (cid:88) π i (cid:13) (cid:13) (cid:13)∇ F i (w) − (cid:88) π j ∇ F j (w) (cid:13) (cid:13) (cid:13) + (cid:13) (cid:13) ∇ F θ ν ,S (w) (cid:13) (cid:13) 2 . i∈S (cid:13) j∈S (cid:13) Now since the weights π sum to one, we may use the convexity of 2 to get: i
+(cid:107)·(cid:107)
+(cid:88) π i (cid:13) (cid:13) (cid:13) ∇ F˜ j (w) (cid:13) (cid:13) (cid:13) 2 ≤ (cid:88) π i π j (cid:107)∇ F j (w) −∇ F i (w) (cid:107) 2+ (cid:13) (cid:13) ∇ F θ ν ,S (w) (cid:13) (cid:13) 2 . i∈S i,j∈S The squared triangle inequality (cf. (42)) together with the Lipschitz assumption on the functions F yields: i
+(cid:88) π i (cid:13) (cid:13) (cid:13) ∇ F˜ i (w) (cid:13) (cid:13) (cid:13) 2 ≤ 2 (cid:88) π i π i (cid:16) (cid:107)∇ F i (w) (cid:107) 2+ (cid:107)∇ F j (w) (cid:107) 2 (cid:17) + (cid:13) (cid:13) ∇ F θ ν ,S (w) (cid:13) (cid:13) 2 i∈S i,j∈S
+4G2+ (cid:13) (cid:13) Fν (w) (cid:13) (cid:13) 2 .
+≤ ∇ θ,S
+36
+Thus, taking an expectation over S U gives m
+∼
+(cid:34) (cid:12) (cid:35) E (cid:88) π i (cid:13) (cid:13) (cid:13) ∇ F˜ j (w) (cid:13) (cid:13) (cid:13) 2(cid:12) (cid:12) (cid:12) (cid:12)F t ≤ 4G2+ES∼Um (cid:104)(cid:13) (cid:13) ∇ F θ ν ,S (w) (cid:13) (cid:13) 2 (cid:105) . i∈S By centering (cf. (43)), we get,
+(cid:34) (cid:12) (cid:35) E (cid:88) i∈S
+π i (cid:13) (cid:13) (cid:13) ∇ F˜ i (w) (cid:13) (cid:13) (cid:13) 2(cid:12) (cid:12) (cid:12) (cid:12)F t ≤ 4G2+ (cid:13) (cid:13) (cid:13) ∇ F ν θ (w) (cid:13) (cid:13) (cid:13) 2
+(41)
++E (cid:20)(cid:13) (cid:13) (cid:13) ∇ F θ ν ,S (w) −∇ F ν θ (w) (cid:13) (cid:13) (cid:13) 2 (cid:12) (cid:12) (cid:12) (cid:12)F t (cid:21) . Finally, substituting the variance bound from Theorem 9 into (41) yields the stated result. Bounding the Client Drift. During federated learning, each client takes multiple local steps. This causes theresultingupdatetobeabiasedestimatorofadescentdirectionfortheglobalobjective. Thisphenomenon has been referred to as “client drift” [66, 51]. Current proof techniques rely on treating this as a “noise” term that is to be controlled. In the context of this work, the reweighting by π(t) requires us to adapt this typical definitionofclientdrifttooursetting. Inparticular,recallthatwedefinetheclientdriftd(t) inouteriteration t of the algorithm as
+(cid:34) (cid:88) τ (cid:88) −1 (cid:12) (cid:12) (cid:35) d(t) :=ES∼Um π i
+(t)
+(cid:107) w i
+(
+, t k
+)
+− w(t)
+(cid:107)
+2(cid:12)
+(cid:12) (cid:12)F t
+. i∈S k=0 Proposition 12 (Client Drift). If γ 1 , we have for any t 0 that
+≤ 4τ(L+λ) ≥ d(t) 8τ2(τ 1)γ2 (cid:18)(cid:18) 4+ 8 (cid:19) G2+2L(cid:48) (cid:16) F ν (w(t)) F ν (w(cid:63)) (cid:17)(cid:19) .
+≤ − θm θ − θ Furthermore, if λ=0, we have the bound d(t) 8τ2(τ 1)γ2G2.
+≤ − The last bound also works without smoothing, i.e., ν =0. Proof. We absorb the regularization into the superquantile by defining F˜(w)=F (w)+(λ/2) w 2. If τ =1, i i there is nothing to prove as both sides of the inequality are 0. We assume now that τ >1. (cid:107)Let(cid:107)us first fix S [n] of size S =m. For any k S and j 1,...,τ 1 , by the squared triangle inequality (cf. (42)), we⊂have: | | ∈ ∈{ − }
+(cid:13) (cid:13)2 (cid:13) (cid:13)2
+(cid:13)w(t) w(t)(cid:13) =(cid:13)w(t) γ F˜(w(t) ) w(t)(cid:13)
+(cid:13) i,k− (cid:13) (cid:13) i,k−1− ∇ i i,k−1 − (cid:13)
+(cid:18) 1 (cid:19)(cid:13) (cid:13)2 (cid:13) (cid:13)2
+1+ (cid:13)w(t) w(t)(cid:13) +τγ2(cid:13) F˜(w(t) )(cid:13) .
+≤ τ 1 (cid:13) i,k−1− (cid:13) (cid:13) ∇ i i,k−1 (cid:13)
+− The squared triangle inequality (cf. (42)) together with the smoothness of the local losses gives:
+(cid:13) (cid:13) (cid:13) w i ( , t k ) − w(t) (cid:13) (cid:13) (cid:13) 2 ≤ (cid:18) 1+ τ 1 1 (cid:19)(cid:13) (cid:13) (cid:13) w i ( , t k ) −1− w(t) (cid:13) (cid:13) (cid:13) 2
+(cid:18)(cid:13) (cid:13) (cid:13) w i ( , t k ) − w(t) (cid:13) (cid:13) (cid:13) 2 (cid:19) +2τγ2 (cid:18) − (cid:13) (cid:13) (cid:13) ∇ F˜ i (w i ( , t k ) −1 ) −∇ F˜ i (w(t)) (cid:13) (cid:13) (cid:13) 2 + (cid:13) (cid:13) (cid:13) ∇ F˜ i (w(t)) (cid:13) (cid:13) (cid:13) 2 (cid:19)
+(cid:18) 1 (cid:19)(cid:13) (cid:13)2
+1+ (cid:13)w(t) w(t)(cid:13)
+≤ τ 1 (cid:13) i,k−1− (cid:13)
+−
+(cid:13) (cid:13)2 (cid:13) (cid:13)2
++2τγ2(L+λ)2(cid:13)w(t) w(t)(cid:13) +2τγ2(cid:13) F˜(w(t))(cid:13) .
+(cid:13) i,k−1− (cid:13) (cid:13) ∇ i (cid:13)
+37
+Hence, for γ 1 , we get:
+≤ 4τ(L+λ)
+(cid:13) (cid:13)2 (cid:18) 2 (cid:19)(cid:13) (cid:13)2 (cid:13) (cid:13)2
+(cid:13)w(t) w(t)(cid:13) 1+ (cid:13)w(t) w(t)(cid:13) +2τγ2(cid:13) F˜(w(t))(cid:13) .
+(cid:13) i,k− (cid:13) ≤ τ 1 (cid:13) i,k−1− (cid:13) (cid:13) ∇ i (cid:13)
+− Unrolling this recursion yields for any j τ 1
+≤ −
+(cid:13) (cid:13)2 k (cid:88) −1(cid:18) 2 (cid:19)i(cid:18) (cid:13) (cid:13)2 (cid:19)
+(cid:13)w(t) w(t)(cid:13) 1+ 2τγ2(cid:13) F˜(w(t))(cid:13)
+(cid:13) i,k− (cid:13) ≤ τ 1 (cid:13) ∇ i (cid:13) i=0 −
+τ 1 (cid:18) 2 (cid:19)k(cid:18) (cid:13) (cid:13)2 (cid:19)
+− 1+ 2τγ2(cid:13) F˜(w(t))(cid:13)
+≤ 2 τ 1 (cid:13) ∇ i (cid:13)
+−
+τ 1 (cid:18) 2 (cid:19)τ−1(cid:18) (cid:13) (cid:13)2 (cid:19)
+− 1+ 2τγ2(cid:13) F˜(w(t))(cid:13)
+≤ 2 τ 1 (cid:13) ∇ i (cid:13)
+−
+(cid:13) (cid:13)2
+8τ(τ 1)γ2(cid:13) F˜(w(t))(cid:13) ,
+(cid:13) i (cid:13)
+≤ − ∇ where we use (1+2/x)x e2 <8 for any x>0. If λ=0 we have that (cid:13) (cid:13) (cid:13) F˜ i (w(t)) (cid:13) (cid:13) (cid:13) 2 = (cid:13) (cid:13) F i (w(t)) (cid:13) (cid:13) 2 G2
+≤ ∇ ∇ ≤ since F is G-Lipschitz; this gives us the final bound in the statement. When λ=0, this does not hold. In i this case, we apply Theorem 11 to get (cid:54)
+(cid:34) (cid:12) (cid:35)
+(cid:88) (cid:13) (cid:13)2(cid:12) d(t) ≤ 8τ2(τ − 1)γ2 ES∼Um π i (t)(cid:13) (cid:13) ∇ F˜ i (w(t))(cid:13) (cid:13) (cid:12) (cid:12) (cid:12)F (t) i∈S
+8τ2(τ 1)γ2 (cid:18)(cid:18) 4+ 8 (cid:19) G2+ (cid:13) (cid:13) F ν (w(t)) (cid:13) (cid:13) 2 (cid:19) .
+≤ − θm (cid:13) ∇ θ (cid:13) Invoking smoothness (cf. (45)) completes the proof. A.5 Useful Inequalities and Technical Results We recall a few standard inequalities:
+• Squared Triangle inequality: For any x,y R d and α>0 we have:
+∈
+(cid:18) (cid:19)
+1 x+y 2 (1+α) x 2+ 1+ y 2 . (42)
+(cid:107) (cid:107) ≤ (cid:107) (cid:107) α (cid:107) (cid:107)
+• Centering the second moment: For any R d-valued random vector X such that E X 2 < ,
+(cid:107) (cid:107) ∞ E X 2 =E X E[X] 2+ E[X] 2 (43)
+(cid:107) (cid:107) (cid:107) − (cid:107) (cid:107) (cid:107)
+• Strong convexity: Let F :R d R be µ-strongly convex. Then for any x,y R d, we have:
+→ ∈
+µ F(x),x y F(x) F(y)+ x y 2 (44)
+(cid:104)∇ − (cid:105)≥ − 2 (cid:107) − (cid:107)
+• Smoothness: Let F :R d R be L-smooth and let F(cid:63) be the minimum value of F (assuming it exists). Then for any x R d, we→have:
+∈ F(x) 2 2L(F(x) F(cid:63)) (45)
+(cid:107)∇ (cid:107) ≤ −
+38
+Lemma 13. Consider the maps ϕ,ψ :(0,Γ] R+ given by
+→ A
+ϕ(γ)= +Bγ+Cγ2, ψ(γ)=2Aexp( λγT)+Bγ+Cγ2, exp(λγT) 1 −
+− where λ,Γ,A,B,C,T >0 are given and λΓ 1. If T (λΓ)−1, then, we have,
+≤ ≥
+3B
+(cid:18) AλT
+(cid:19)
+3C
+(cid:18) Aλ2T2(cid:19)2
+ϕ(γ(cid:63)) ψ(γ(cid:63)) 2Aexp( λΓT)+ 1 log + 1 log ,
+≤ ≤ − λT ∨ B λ2T2 ∨ C where γ(cid:63) is given by
+(cid:26)
+1
+(cid:18) AλT
+(cid:19)
+1
+(cid:18) Aλ2T2(cid:19)(cid:27)
+γ(cid:63) =min Γ, 1 log , 1 log .
+λT ∨ B λT ∨ C Furthermore, we also have that
+(cid:0) exp(λγ(cid:63)T) 1
+(cid:1)−1
+1.
+− ≤ Proof. Since λΓT 1, we have that λγ(cid:63)T 1. Then, exp( λγ(cid:63)T) exp( 1)<1/2 so that
+≥ ≥ − ≤ −
+1 exp( λγ(cid:63)T)
+= − 2exp( λγ(cid:63)T) 1. exp(λγ(cid:63)T) 1 1 exp( λγ(cid:63)T) ≤ − ≤
+− − − Therefore, we have,
+ϕ(γ(cid:63)) 2Aexp( λγ(cid:63)T)+Bγ(cid:63)+C(γ(cid:63))2 =ψ(γ(cid:63)).
+≤ − Next,defineγ =(λT)−1log(1 AλT/B)andγ =(λT)−1log(1 Aλ2T2/C),sothatγ(cid:63) =min Γ,γ ,γ .
+1 2 1 2 We have three cases: ∨ ∨ { }
+• If γ(cid:63) =Γ, we have that Γ γ and Γ γ so that
+1 2
+≤ ≤
+ψ(γ(cid:63))=2Aexp( λΓT)+BΓ+CΓ2 2Aexp( λΓT)+Bγ +Cγ2.
+− ≤ − 1 2
+• If γ(cid:63) =γ , we have γ γ . In this case,
+1 1 2
+≤
+(cid:18) (cid:19)
+2B B AλT
+ψ(γ(cid:63))=Aexp( λγ T)+Bγ +Cγ2 + 1 log +Cγ2.
+− 1 1 1 ≤ λT λT ∨ B 2
+• If γ(cid:63) =γ , we have γ γ , so that
+2 2 1
+≤
+2C C
+(cid:18) Aλ2T2(cid:19)2
+ψ(γ(cid:63))=2Aexp( λγ T)+Bγ +Cγ2 +Bγ + 1 log .
+− 2 2 2 ≤ λ2T2 1 λ2T2 ∨ C The proof of the next lemma is elementary and is omitted. Lemma 14. Consider the map ϕ:(0,Γ] R+ given by
+→ A
+ϕ(γ)= +Bγ+Cγ2,
+γT where Γ,A,B,C >0 are given. Then, we have,
+(cid:18) (cid:19)1/2 (cid:18) (cid:19)2/3 A AB A
+ϕ(γ(cid:63)) +2 +2C1/3 ,
+≤ ΓT T T where γ(cid:63) is given by
+(cid:40) (cid:114) (cid:18) (cid:19)1/3 (cid:41) A A
+γ(cid:63) =min Γ, , . BT CT
+39
+B Privacy Analysis B.1 Preliminaries The discrete Gaussian mechanism was introduced in [14] as an extension of the Gaussian mechanism to integer data. A random variable ξ is said to satisfy the discrete Gaussian distribution with mean µ and variance proxy σ2 if
+(cid:18)
+(n
+µ)2(cid:19) P(ξ =n)=C exp − for all n Z,
+− 2σ2 ∈ where C is an appropriate normalizing constant. We denote it by Z(µ,σ2). We need the following property of the discrete Gaussian. N Property 15. Let ξ be distributed according to Z(µ,σ2). Then, E[ξ]=µ. Furthermore, if µ=0, then ξ is N sub-Gaussian with variance proxy σ2, i.e., E[exp(λξ)] exp(λ2σ2/2) for all λ>0.
+≤ B.2 Privacy-Utility Analysis of Quantile Computation We now give the full proof of Theorem 6. Proof of Theorem 6. We start by defining and controlling the probabilities of some events. Throughout, let
+δ >0 be fixed. Define the event
+(cid:92) n log (cid:92)2 b−1b (cid:92) /2r(cid:26) M 2 M 2 (cid:27) E = − cx (r,j)+ξ (r,j) − . (46) mod i i
+− 2n ≤ ≤ 2n i=1 r=0 j=1 Note that under E , no modular wraparound occurs in the algorithm. Thus, for all valid levels r and mod indices j, we have x˜ (r,j)=cx (r,j)+ξ (r,j) and i i i n n (cid:18) (cid:19) hˆ(r,j)= (cid:88)x˜ i (r,j) = (cid:88) x (r,j)+ ξ i (r,j) . i c c i=1 i=1 Next, we define the event E = (cid:92) b (cid:110)(cid:12) (cid:12)H(j) Hˆ(j) (cid:12) (cid:12) (cid:112) 2σ2nlog (b)log(4b/δ) (cid:111) . (47) diff (cid:12) − (cid:12) ≤ 2 j=1 We will show later that E and E holds with high probability; for now, we assume that they hold. mod diff Privacy Analysis. We start by establishing the sensitivity of the sum query over x ’s as log b, one for each i 2 level in the hierarchical histogram. Define the input space to be the space of hierarchical histograms with one non-zero entry in the leaf nodes with consistent counts (Xi.e., the count of a parent node in the hierarchical histogram equals the sum of its child nodes). Let ∗ = ∞ m denote the set of all sequences of elements of . We consider the rescaled sum query A((x ,. X ..,x ∪ )) m = =1 (cid:80)Xn cx . The L sensitivity S(A) of this query A iXs supremum over all X ∗ and X(cid:48) which 1 is obtai N ned by c i o = n 1 cate i nating x 2 (cid:48) to X:
+∈X S(A)= sup A(X) A(X(cid:48)) = sup c x(cid:48) =clog b. X,X(cid:48)(cid:107) − (cid:107)2 x(cid:48)∈X (cid:107) (cid:107)2 2 We invoke the privacy bound of sums of discrete Gaussians (Theorem 18) to claim that an algorithm returning A(x)+ (cid:80)n ξ satisfies (1/2)ε2-concentrated DP where ε is as in the theorem statement. The faAct i=1 i
+40
+that the quantile and all further functions of it remain private follows from the post-processing property of DP (also known as the data-processing inequality). Utility Analysis. Using the triangle inequality, we get,
+(cid:12) (cid:12)H (cid:0) j∗(Hˆ) (cid:1) (cid:12) (cid:12)
+∆ (Hˆ,H)=(cid:12) θ (1 θ)(cid:12)
+θ (cid:12) (cid:12) n − − (cid:12) (cid:12)
+≤ n 1 (cid:12) (cid:12) (cid:12) H (cid:0) j θ ∗(Hˆ) (cid:1) − Hˆ(cid:0) j θ ∗(Hˆ) (cid:1) (cid:12) (cid:12) (cid:12) + (cid:12) (cid:12) (cid:12) (cid:12)n 1 Hˆ(cid:0) j θ ∗(Hˆ) (cid:1) − (1 − θ) (cid:12) (cid:12) (cid:12) (cid:12)
+(cid:26) 1 (cid:12) (cid:12)(cid:27) max (cid:12)H(j) Hˆ(j)(cid:12) +R∗(Hˆ).
+≤ j∈[b] n(cid:12) − (cid:12) θ The first term is bounded under E , and this gives the utility bound. diff Bounding the Failure Probability. The algorithm fails when at least one of E or E fail to hold. mod diff We have from Theorem 16 that P(E mod
+) 1 δ/4 under the given assumptions. From, Theorem 17, we have P(E diff E mod
+) 1 δ/2. We bound th≥e to−tal failure probability of the algorithm with a union bound as
+| ≥ − P(E¯ diff E¯ mod
+) P(E¯ diff E mod
+)P(E mod
+)+P(E¯ diff E¯ mod
+)P(E¯ mod
+)+P(E¯ mod
+)
+∪ ≤ | | P(E¯ diff E mod
+)+2P(E¯ mod
+) δ.
+≤ | ≤ We state and prove bounds on probabilities of the events E ,E defined above. mod diff
+(cid:112) Claim 16. If M 2+2cn+2n 2σ2log(16nb/δ), then P(E mod
+) 1 δ/4.
+≥ ≥ − Proof. Each discrete Gaussian random variable ξ (r,j) is centered and sub-Gaussian with variance proxy σ2 i
+(cf. Theorem 15). A Cramér-Chernoff bound (cf. Theorem 19) gives us the exponential tail bound
+(cid:16) (cid:112) (cid:17) δ P ξ i (r,j) > 2σ2log(16nb/δ) .
+| | ≤ 8nb Applying the union bound over i = 1,...,n and the 2b 2 nodes in each hierarchical histogram x (each i node corresponding to one (r,j) pair) completes the proo−f. Claim 17. We have P(E diff E mod
+) 1 δ/2.
+| ≥ − Proof. Under E , we have that Hˆ(j) = H(j)+ (cid:80)n (cid:80) ξ (r,o), where P is the maximal dyadic mod i=1 (r,o)∈Pj i j partition of [1,j] with P log b. Thus, ζ :=Hˆ(j) H(j) is sub-Gaussian with variance proxy nP σ2 nσ2log b. A Cramér-C|h j e|r≤noff b 2 ound (cf. T j heorem 1−9) gives us | j | ≤
+2
+(cid:16) (cid:112) (cid:17) δ P | ζ j | > 2σ2nlog 2 (b)log(4b/δ) ≤ 2b . Applying a union bound over j =1,...,b completes the proof. B.3 Useful Results The distributed discrete Gaussian mechanism gets privacy guarantees by adding a sum of discrete Gaussian random variables. We give a bound on its privacy. The following lemma is due to [49]. Lemma 18 (PrivacyofSumofDiscreteGaussians). Fix σ 1/2. Let A: d be a deterministic algorithm
+≥ X → with (cid:96) -sensitivity S for some input space . Define a randomized algorithm , which when given an input
+2 X A
+41
+x
+∈ X
+, samples ξ
+1
+,...,ξ n ∼ N Z(0,σ2I d
+) and returns A(x)+ (cid:80)n i=1
+ξ i
+. Then, A satisfies ε2/2-concentrated DP with
+(cid:40)(cid:114) (cid:41) S2 ψd S
+ε=min + , +ψ√d , nσ2 2 √nσ where ψ =10 (cid:80)n−1exp (cid:0) 2π2σ2i/(k+1) (cid:1) 10(n 1)exp( 2π2σ2). i=1 − ≤ − − Next, we record a standard concentration result. Lemma 19 (Cramér-Chernoff). Let ξ be a real-valued and centered sub-Gaussian random variable with variance proxy σ2, i.e., E[ξ]=0 and E[exp(λξ)] exp(λ2σ2/2) for all λ>0. Then, we have for any t>0,
+≤
+(cid:18) t2 (cid:19) P(ξ >t) 2exp .
+| | ≤ −2σ2 C Numerical Experiments: Extended Results We conduct our experiments on two datasets from computer vision and natural language processing. These datasets contain a natural, non-iid split of data which is reflective of data heterogeneity encountered in federated learning. In this section, we describe in detail the experimental setup and the results. Here is its outline:
+• Appendix C.1 describes the datasets and tasks.
+• Appendix C.2 presents the algorithm and the hyperparameters used.
+• Appendix C.3 details the evaluation methodology.
+• Appendix C.4 gives the experimental comparison of ∆-FL to baselines. Sinceeachclienthasafinitenumberofdatapointsintheexamplesbelow,weletitsprobabilitydistribution q to be the empirical distribution over the available examples, and the weight α to be proportional to the i i number of datapoints available on the client. C.1 Datasets and Tasks We use the two following datasets, described in detail below. The data was preprocessed using LEAF [13]. EMNIST for handwritten-letter recognition. Dataset. EMNIST [19] is a character recognition dataset. This dataset contains images of handwritten digits or letters, labeled with their identification (a-z, A-Z, 0-9). The images are grey-scaled pictures of
+28 28=784 pixels.
+× Train and Test Devices. Each image is also annotated with the “writer” of the image, i.e., the human subject who hand-wrote the digit/letter during the data collection process. Each client corresponds to one writer. From this set of clients, we discard all clients containing less than 100 images. The remaining clients were partitioned into two groups — 1730 training and 1730 testing clients. For each experiment, we subsampled 865 training and 865 testing clients for computational tractability, where the sampled clients vary based on the random seed of each experiment. Model. We consider the following models for this task.
+42
+• Linear Model: We use a linear softmax regression model. In this case, each F is convex. We i train parameters w R 62×784. Given an input image x R 784, the score of each class c [62] is the dot product w ∈ ,x . The probability p assigned to e∈ach class is then computed as a∈softmax: c c p p c ro
+= ba e b x il p it(cid:104)y w
+. c
+,x
+(cid:105)
+/ (cid:80)(cid:104) c(cid:48) ex (cid:105) p
+(cid:104) w c(cid:48),x
+(cid:105)
+. The prediction for a given image is then the class with the highest
+• ConvNet: We also consider a convolutional neural network with two convolutional layers with maxpooling and one fully connected layer (F.C) which outputs a vector in 62. The outputs of the ConvNet R arescoreswithrespecttoeachclass. Theyarealsousedwithasoftmaxoperationtocomputeprobabilities. The loss used to train both models is the multinomial logistic loss L(p,y)= logp where p denotes the y vector of probabilities computed by the model and p denotes its yth component−. In the convex case, we add y a quadratic regularization term of the form (λ/2) w 2.
+(cid:107) (cid:107)2 Sent140 for Sentiment Analysis. Dataset. Sent140 [39] is a text dataset of 1,600,498 tweets produced by 660,120 Twitter accounts. Each tweet is represented by a character string with emojis redacted. Each tweet is labeled with a binary sentiment reaction (i.e., positive or negative), which is inferred based on the emojis in the original tweet. Train and Test Devices. Each client represents a Twitter account and contains only tweets published by this account. From this set of clients, we discarded all clients containing less than 50 tweets and split the 877 remaining clients into a train set and a test set of sizes 438 and 439 respectively. This split was held fixed for all experiments. Each word in the tweet is encoded by its 50-dimensional GloVe embedding [77]. Model. We consider the following models.
+• Linear Model: We consider a l -regularized linear logistic regression model where the parameter vector
+2 w is of dimension 50. In this case, each F is convex. We summarize each tweet by the average of the i GloVe embeddings of the words of the tweet.
+• RNN: The nonconvex model is a Long Short Term Memory (LSTM) model [45] built on the GloVe embeddings of the words of the tweet. The hidden dimension of the LSTM is the same as the embedding dimension, i.e., 50. We refer to it as “RNN”. The loss function is the binary logistic loss. C.2 Algorithms and Hyperparameters Algorithm and Baselines. The proposed ∆-FL is run for three values of θ 0.8,0.5,0.1 . We compare it to the following baselines:
+∈{ }
+• FedAvg [67]: It is the de facto standard for the vanilla federated learning objective.
+• FedAvg, θ: We also consider FedAvg with a random client subselection step: local updates are run on a fraction of the initial number of clients randomly selected per round. For each dataset, we try three values, corresponding to the average number of clients selected by ∆-FL for the three values of θ used. In the main paper, we report as FedAvg-Sub the performance of FedAvg, θ with θ 0.8,0.5,0.1 which gives the best performance on ∆-FL (i.e., lowest 90th percentile of test misclassific∈at{ion error). H}ere we report numbers for all values of θ considered.
+• FedProx [63]: It augments FedAvg with a proximal term but still minimizes the vanilla federated learning objective.
+• q-FFL [64]: It raises the per-client losses to the power (1+q), where q 0 is a parameter, in order to focus on clients with higher loss. We run q-FFL for values of q in 10j,j ≥ 3,...,1 .
+{ ∈{− }}
+43
+• AFL[71]: Itaimstominimizetheworstper-clientloss. Weimplementitasanasymptoticversionofq-FFL, using a large value of q, as this was found to yield better convergence with comparable performance [64]. In the experiments, we take q =10.0. The experiments are conducted on the datasets described in Appendix C.1. Hyperparameters. Rounds. We measure the progress of each algorithm by the number of calls to secure aggregation routine for weight vectors, i.e., the number of communication rounds. For the experiments, we choose the number of communication rounds depending on the convergence of the optimization for FedAvg. For the EMNIST dataset, we run the algorithm for 3000 communication rounds with the linear model and 1000 for the ConvNet. For the Sent140 dataset, we run the 1000 communication rounds for the linear model and 600 for the RNN. Devices per Round. We choose the same number of clients per round for each method, with the exception of FedAvg,θ. All clients are assumed to be available and selections are made uniformly at random. In particular, we select 100 clients per round for all experiments with the exception of Sent140 RNN for which we used 50 clients per round. Local Updates and Minibatch Size. Each selected client locally runs 1 epoch of mini-batch stochastic gradient descent locally. We used the default mini-batch of 10 for all experiments [67], except for 16 for EMNIST ConvNet. This is because the latter experiments were run using on a GPU, as we describe in the section on the hardware. Learning rate scheme. We now describe the learning rate γ used during LocalUpdate. For the linear t model, we used a constant fixed learning rate γ γ , while for the neural network models, we used a step t 0 decay scheme of the learning rate γ t
+=γ
+0 c−(cid:98)t/t0(cid:99) ≡for some t
+0 where γ
+0 and 0<c 1 are tuned. We tuned the learning rates only for the baseline FedAvg and used the same learning rate fo≤r the other baselines and
+∆-FL at all values of θ. For the neural network models, we fixed t so that the learning rate decayed once or twice during the
+0 fixed time horizon T. In particular, we used t =400 for EMNIST ConvNet (where T =1000) and t =200
+0 0 for Sent140 RNN (where T =600). We tuned c from the set 2−3,2−2,2−1,1 , while the choice of the range of γ depended on the dataset-model pair. The tuning criterio{n we used was th}e mean of the loss distribution
+0 over the training clients (with client i weighted by α ) at the end of the time horizon. That is, we chose the i
+γ ,c which gave the best terminal training loss.
+0 Tuning of the regularization parameter. The regularization parameter λ for linear models was tuned with cross validation from the set 10−k : k 3,...,8 . This was performed as described below. For each dataset, we held out h{alf the tra∈in{ing clien}ts}as validation clients. Then, for different values of the regularization parameter, we trained a model with the (smaller subset of) training clients and evaluate its performance on the validation clients. We selected the value of the regularization parameter as the one which gave the smallest 90th percentile of the misclassification error on the validation clients. Baselines Parameters. We tune the proximal parameter of FedProx with cross validation. The procedure we followed is identical to the procedure we described above for the regularization parameter λ. The set of parameters tested is 10−j,j 0,...,3 . We did not attempt to tune the parameter q of q-FFL and report the performance of a{ll values∈of{ q which}w}e tried. Hyperparameters of ∆-FL. We optimize ∆-FL via Algorithm 3 with a fixed number of local steps, corresponding to one epoch. For simplicity, we calculate the quantile exactly, assuming client losses are available to the server.
+44
+Table 6: Metrics for the test misclassification error for EMNIST (Linear Model). Method Mean StandardDeviation 10th Percentile Median 90th Percentile FedAvg 34.38 0.38 18.39 0.33 21.54 0.35 32.61 0.39 49.65 0.67 FedAvgθ=0.8 34.20 ± 0.45 18.25 ± 0.22 21.37 ± 0.26 32.10 ± 0.34 49.92 ± 1.16 FedAvgθ=0.5 34.51 ± 0.47 18.21 ± 0.30 21.40 ± 0.36 32.36 ± 0.59 50.28 ± 0.77 FedAvgθ=0.1 34.60 ± 0.46 18.58 ± 0.31 21.71 ± 0.37 32.54 ± 0.37 50.33 ± 1.28 FedProx 33.82 ± 0.30 18.25 ± 0.23 21.37 ± 0.35 31.75 ± 0.20 49.15 ± 0.74 q-FFL(Best q=1.0) 34.71 ± 0.27 19.34 ± 0.30 22.33 ± 0.41 32.80 ± 0.23 49.90 ± 0.58 Tilted-ERM(Best t=1.0) 34.15 ± 0.25 10.78 ± 0.30 22.43 ± 0.29 32.36 ± 0.23 48.59 ± 0.62 AFL 39.32 ± 0.27 25.42 ± 0.27 28.64 ± 0.43 38.16 ± 0.34 51.62 ± 0.28
+± ± ± ± ±
+∆-FLθ=0.8 34.48 0.26 19.16 0.32 22.24 0.32 32.85 0.31 49.10 0.24
+∆-FLθ=0.5 35.01 ± 0.20 20.46 ± 0.34 23.64 ± 0.22 33.83 ± 0.34 48.44 ± 0.38
+∆-FLθ=0.1 38.32 ± 0.48 23.86 ± 0.59 27.27 ± 0.64 37.52 ± 0.67 50.34 ± 0.95
+± ± ± ± ± Table 7: Metrics for the test misclassification error for EMNIST (ConvNet Model). Method Mean StandardDeviation 10th Percentile Median 90th Percentile FedAvg 16.63 0.50 4.94 0.14 6.43 0.24 15.34 0.37 28.46 1.07 FedAvgθ=0.8 15.95 ± 0.42 5.25 ± 0.19 6.86 ± 0.38 14.84 ± 0.24 26.82 ± 1.28 FedAvgθ=0.5 16.22 ± 0.23 5.06 ± 0.17 6.47 ± 0.28 15.05 ± 0.25 27.56 ± 0.81 FedAvgθ=0.1 15.97 ± 0.43 5.40 ± 0.42 7.10 ± 0.64 14.76 ± 0.20 26.35 ± 2.08 FedProx 16.01 ± 0.54 5.16 ± 0.32 6.68 ± 0.44 14.88 ± 0.29 27.01 ± 1.86 q-FFL(Bestq=0.001) 16.58 ± 0.30 5.05 ± 0.21 6.53 ± 0.20 15.40 ± 0.43 28.02 ± 0.80 Tilted-ERM(Bestt=1.0) 15.69 ± 0.38 7.31 ± 0.68 7.26 ± 0.51 14.66 ± 0.16 25.46 ± 1.49 AFL 33.00 ± 0.37 20.38 ± 0.23 22.92 ± 0.23 31.58 ± 0.27 45.07 ± 1.00
+± ± ± ± ±
+∆-FLθ=0.8 16.08 0.40 5.60 0.14 7.31 0.29 14.85 0.48 26.23 1.15
+∆-FLθ=0.5 15.48 ± 0.30 6.13 ± 0.15 8.08 ± 0.16 14.73 ± 0.22 23.69 ± 0.94
+∆-FLθ=0.1 16.37 ± 1.03 6.61 ± 0.42 8.28 ± 0.65 15.49 ± 1.03 25.45 ± 2.77
+± ± ± ± ± Table 8: Metrics for the test misclassification error for Sent140 (Linear Model). Method Mean StandardDeviation 10th Percentile Median 90th Percentile FedAvg 34.74 0.31 12.16 0.15 21.89 0.24 34.81 0.38 46.83 0.54 FedAvgθ=0.8 34.47 ± 0.03 12.08 ± 0.16 21.69 ± 0.26 34.62 ± 0.17 46.59 ± 0.38 FedAvgθ=0.5 34.46 ± 0.07 12.11 ± 0.24 21.55 ± 0.51 34.48 ± 0.20 47.00 ± 0.40 FedAvgθ=0.1 34.79 ± 0.32 11.97 ± 0.37 22.08 ± 0.75 34.93 ± 0.35 46.69 ± 0.84 FedProx 34.74 ± 0.31 12.16 ± 0.15 21.89 ± 0.24 34.82 ± 0.39 46.83 ± 0.54 q-FFL(Best q=1.0) 34.48 ± 0.06 11.96 ± 0.14 21.61 ± 0.24 34.57 ± 0.16 46.38 ± 0.40 Tilted-ERM(Best t=1.0) 34.71 ± 0.31 12.00 ± 0.14 21.83 ± 0.34 34.91 ± 0.39 46.70 ± 0.50 AFL 35.97 ± 0.08 11.83 ± 0.09 23.58 ± 0.28 36.09 ± 0.17 47.51 ± 0.32
+± ± ± ± ±
+∆-FLθ=0.8 34.41 0.22 12.17 0.11 21.77 0.34 34.64 0.25 46.44 0.38
+∆-FLθ=0.5 35.28 ± 0.25 11.68 ± 0.40 23.03 ± 0.38 35.55 ± 0.53 46.64 ± 0.41
+∆-FLθ=0.1 37.78 ± 0.89 12.86 ± 0.52 23.93 ± 0.99 37.80 ± 1.30 51.38 ± 1.07
+± ± ± ± ±
+45
+Table 9: Metrics for the test misclassification error for Sent140 (RNN Model). Method Mean StandardDeviation 10th Percentile Median 90th Percentile FedAvg 30.16 0.44 4.36 1.26 10.06 2.06 29.51 0.33 49.66 3.951 FedAvgθ=0.8 29.85 ± 0.46 5.39 ± 1.32 11.90 ± 2.27 29.57 ± 0.31 46.93 ± 3.841 FedAvgθ=0.5 31.06 ± 1.01 4.33 ± 2.73 9.69 ± 4.89 30.14 ± 0.71 53.10 ± 7.221 FedAvgθ=0.1 31.96 ± 1.47 4.82 ± 2.09 11.65 ± 4.83 31.55 ± 1.13 52.87 ± 8.411 FedProx 30.20 ± 0.48 4.35 ± 1.23 10.37 ± 2.08 29.51 ± 0.32 49.85 ± 4.07 q-FFL(Bestq=0.01) 29.99 ± 0.56 4.90 ± 1.66 10.98 ± 2.88 29.56 ± 0.39 48.65 ± 4.68 Tilted-ERM(Bestt=1.0) 30.13 ± 0.49 14.17 ± 2.10 13.18 ± 3.33 29.96 ± 0.84 46.54 ± 3.27 AFL 37.74 ± 0.65 9.90 ± 1.46 18.19 ± 1.99 36.95 ± 1.03 57.78 ± 1.19
+± ± ± ± ±
+∆-FLθ=0.8 30.30 0.33 6.75 2.68 13.05 3.87 29.92 0.38 46.46 4.39
+∆-FLθ=0.5 33.58 ± 2.44 8.74 ± 3.98 16.77 ± 6.62 33.28 ± 2.27 50.47 ± 8.24
+∆-FLθ=0.1 51.97 ± 11.81 9.11 ± 5.47 16.67 ± 9.15 52.44 ± 13.21 86.44 ± 10.95
+± ± ± ± ± C.3 Evaluation Strategy and Other Details Evaluation metrics. Werecordthelossofeachtrainingclientandthemisclassificationerrorofeachtesting client, as measured on its local data. TheevaluationmetricsnotedinAppendixC.4arethefollowing: theweightedmeanofthelossdistribution over the training clients, the (unweighted) mean misclassification error over the testing clients, the weighted
+τ-percentile of the loss over the training client and the (unweighted) τ-percentile of the misclassification error over the testing clients for values of τ among 20,50,60,80,90,95 . We also present the 90th and 95th superquantile of the test misclassification error (i.e.,{average misclassific}ation error of the worst 10% and 5% of the clients respectively), as well as the average test misclassification error of the best 10% clients. The weight α used for training client i was set as proportional to the number of datapoints on the client. i Evaluation times. We evaluate the model during the training process once every l communication rounds. The value of l used was l=50 for EMNIST linear model, l=10 for EMNIST ConvNet, l=20 for Sent140 linear model and l=25 for Sent140 RNN. Hardware. We run each experiment as a simulation as a single process. The linear models were trained on m5.8xlarge AWS instances, each with an Intel Xeon Platinum 8000 series processor with 128 GB of memory running at most 3.1 GHz. The neural network experiments were trained on workstation with an Intel i9 processor with 128 GB of memory at 1.2 GHz, and two Nvidia Titan Xp GPUs. The Sent140 RNN experiments were run on a CPU while the other neural network experiments were run using GPUs. Software Packages. Our implementation is based on NumPy using the Python language. In the neural network experiments, we use PyTorch to implement the LocalUpdate procedure, i.e., the model itself and the automatic differentiation routines provided by PyTorch to make SGD updates. Randomness. Since several sampling routines appear in the procedures such as the selection of clients or the local stochastic gradient, we carry out our experiments with five different seeds and plot the average metric value over these seeds. Each simulation is run on a single process. Where appropriate, we report one standard deviation from the mean. C.4 Experimental Results We now present the experimental results of the paper.
+• We present different metrics on the distribution of test misclassification error over the clients, comparing
+∆-FL to baselines.
+46
+0.12
+0.10
+0.08
+0.06
+0.04
+0.02
+0.00
+0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0 ledoM raeniL Fe -F d L A , vg =0.2 0.175 Fe -F d L A , vg =0.5 0.12 Fe -F d L A , vg =0.9
+0.150
+0.10
+0.125
+0.08
+0.100 0.06
+0.075
+0.050 0.04
+0.025 0.02
+0.000 0.00
+0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0
+0.5
+0.4
+0.3
+0.2
+0.1
+0.0
+0 1 2 3 4 5 ledoM teNvnoC Histogram of train losses over devices for EMNIST
+0.35 FedAvg FedAvg FedAvg
+-FL, =0.2 0.4 -FL, =0.5 0.30 -FL, =0.9
+0.25
+0.3
+0.20
+0.2 0.15
+0.10
+0.1 0.05
+0.0 0.00
+0 1 2 3 4 5 0 1 2 3 4 5
+0.12
+0.10
+0.08
+0.06
+0.04
+0.02
+0.00
+0.0 0.2 0.4 0.6 0.8 1.0 ledoM raeniL FedAvg 0.12 FedAvg 0.12 FedAvg
+-FL, =0.2 -FL, =0.5 -FL, =0.9
+0.10 0.10
+0.08 0.08
+0.06 0.06
+0.04 0.04
+0.02 0.02
+0.00 0.00
+0.0 0.2 0.4 0.6 0.8 1.0 0.0 0.2 0.4 0.6 0.8 1.0
+0.14
+0.12
+0.10
+0.08
+0.06
+0.04
+0.02
+0.00
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 ledoM teNvnoC Histogram of test misclassification error over devices for EMNIST FedAvg 0.14 FedAvg 0.14 FedAvg
+-FL, =0.2 0.12 -FL, =0.5 0.12 -FL, =0.9
+0.10 0.10
+0.08 0.08
+0.06 0.06
+0.04 0.04
+0.02 0.02
+0.00 0.00
+0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 Figure 7: Histogram of loss distribution over training clients and misclassification error distribution over testing clients for EMNIST. The identification of the model (linear or ConvNet) is given on the y-axis of the histograms.
+• We study the convergence of Algorithm 3 for ∆-FL over the course of the optimization, and compare it with FedAvg.
+• We plot the histograms of the distribution of losses over train clients as well as the test misclassification errors over test clients at the end of the training process.
+• We present in the form of scatter plots the training loss and test misclassification error across clients achieved at the end of the training, versus the number of local data points on the client.
+• We present the number of clients having a loss greater than the quantile at each communication round for
+∆-FL. This gives the effective number of clients selected in each round, cf. Theorem 3 and Remark 1. Comparison to Baselines. We now present a detailed comparison of various statistics of the test misclassification error distribution for different methods in Table 6- For each column, the smallest mean over five random runs is highlighted in bold. Further, if no other method is within one standard deviation of this
+47
+0.175
+0.150
+0.125
+0.100
+0.075
+0.050
+0.025
+0.000
+0.4 0.6 0.8 1.0 ledoM raeniL FedAvg 0.175 FedAvg 0.25 FedAvg
+-FL, =0.8 0.150 -FL, =0.5 0.20 -FL, =0.1
+0.125
+0.15
+0.100
+0.075 0.10
+0.050
+0.05
+0.025
+0.000 0.00
+0.4 0.6 0.8 1.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4
+0.20
+0.15
+0.10
+0.05
+0.00
+0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75 ledoM MTSL Histogram of train losses over devices for Sent140
+0.25 FedAvg FedAvg 0.150 FedAvg
+-FL, =0.8 -FL, =0.5 -FL, =0.1
+0.20 0.125
+0.15 0.100
+0.075
+0.10
+0.050
+0.05 0.025
+0.00 0.000
+0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75 0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75
+0.150
+0.125
+0.100
+0.075
+0.050
+0.025
+0.000
+0.0 0.2 0.4 0.6 0.8 1.0 ledoM raeniL
+0.175 FedAvg FedAvg 0.14 FedAvg
+-FL, =0.8 0.150 -FL, =0.5 0.12 -FL, =0.1
+0.125 0.10
+0.100 0.08
+0.075 0.06
+0.050 0.04
+0.025 0.02
+0.000 0.00
+0.0 0.2 0.4 0.6 0.8 1.0 0.0 0.2 0.4 0.6 0.8 1.0
+0.12
+0.10
+0.08
+0.06
+0.04
+0.02
+0.00
+0.0 0.2 0.4 0.6 0.8 1.0 ledoM MTSL Histogram of test misclassification error over devices for Sent140
+0.14 FedAvg FedAvg FedAvg
+-FL, =0.8 0.12 -FL, =0.5 0.10 -FL, =0.1
+0.10 0.08
+0.08
+0.06 0.06
+0.04 0.04
+0.02 0.02
+0.00 0.00
+0.0 0.2 0.4 0.6 0.8 1.0 0.0 0.2 0.4 0.6 0.8 1.0 Figure 8: Histogram of loss distribution over training clients and misclassification error distribution over testing clients for Sent140. The identification of the model (linear or RNN) is given on the y-axis of the histograms. method, the entire entry (i.e., mean std) is highlighted in bold.
+± Histograms of Loss and Test Misc. Error over Devices. Here, we plot the histograms of the loss distribution over training clients and the misclassification error distribution over testing clients. We report the losses and errors obtained at the end of the training process. Each metric is averaged per client over 5 runs of the random seed. Figure 7 shows the histograms for EMNIST, while Figure 8 shows the histograms for Sent140 dataset. for Sent140. We note that ∆-FL tends to exhibit thinner upper tails at multiple values of θ and a lower variance of the distribution in most of the cases. This is also confirmed by the figures in Tables 6 to 9. This shows the benefit of using ∆-FL over vanilla FedAvg. Performance compared to local data size. Next, we plot the loss on training clients versus the amount of local data on the client and the misclassification error on the test clients versus the amount of local data on the client. See Figure 9 for EMNIST and Figure 10 for Sent140. Observe firstly that improvement over the worst cases is achieved regardless of the local data size of the
+48
+4.0
+3.5
+3.0
+2.5
+2.0
+1.5
+1.0
+0.5
+0.0
+100 200 300 400
+# local data size ssoL niarT FedAvg
+0.8
+0.6
+0.4
+0.2
+0.0
+100 200 300 400
+# local data size rorrE
+.csiM tseT FedAvg
+4.0
+3.5
+3.0
+2.5
+2.0
+1.5
+1.0
+0.5
+0.0
+100 200 300 400
+# local data size ssoL niarT
+-FL, =0.8
+0.8
+0.6
+0.4
+0.2
+0.0
+100 200 300 400
+# local data size rorrE
+.csiM tseT
+-FL, =0.8
+4.0
+3.5
+3.0
+2.5
+2.0
+1.5
+1.0
+0.5
+0.0
+100 200 300 400
+# local data size ssoL niarT
+-FL, =0.5
+0.8
+0.6
+0.4
+0.2
+0.0
+100 200 300 400
+# local data size rorrE
+.csiM tseT
+-FL, =0.5
+4.0
+3.5
+3.0
+2.5
+2.0
+1.5
+1.0
+0.5
+0.0
+100 200 300 400 500 600
+# local data size ssoL niarT
+-FL, =0.1
+0.8
+0.6
+0.4
+0.2
+0.0
+100 200 300 400
+# local data size rorrE
+.csiM tseT Scatter plot of losses and accuracies across devices sizes for EMNIST (Linear Model)
+-FL, =0.1
+1.4
+1.2
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+100 200 300 400
+# local data size ssoL niarT FedAvg
+0.7
+0.6
+0.5
+0.4
+0.3
+0.2
+0.1
+0.0
+100 200 300 400 500 600
+# local data size rorrE
+.csiM tseT FedAvg
+1.4
+1.2
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+100 200 300 400
+# local data size ssoL niarT
+-FL, =0.8
+0.7
+0.6
+0.5
+0.4
+0.3
+0.2
+0.1
+0.0
+100 200 300 400 500 600
+# local data size rorrE
+.csiM tseT
+-FL, =0.8
+1.4
+1.2
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+100 200 300 400
+# local data size ssoL niarT
+-FL, =0.5
+0.7
+0.6
+0.5
+0.4
+0.3
+0.2
+0.1
+0.0
+100 200 300 400 500 600
+# local data size rorrE
+.csiM tseT
+-FL, =0.5
+1.4
+1.2
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+100 200 300 400
+# local data size ssoL niarT
+-FL, =0.1
+0.7
+0.6
+0.5
+0.4
+0.3
+0.2
+0.1
+0.0
+100 200 300 400 500 600
+# local data size rorrE
+.csiM tseT Scatter plot of losses and accuracies across devices sizes for EMNIST (ConvNet Model)
+-FL, =0.1 Figure 9: Scatter plot of (a) loss on training client vs. amount of local data, and (b) misclassification error on testing client vs. amount of local data for EMNIST. clients. Indeed, the client re-weighting step operates a sorting of the loss of the clients which does not prevent small clients from being selected. In contrast, FedAvg, by averaging with respect to the weights of the clients is likely to put more weight on the clients with larger local data size. Secondly, ∆-FL appears to reduce the variance of of the loss on the train clients. Lastly, note that amongst test clients with a small number of data points (e.g., <200 for EMNIST or <100 for Sent140), ∆-FL reduces the variance of the misclassification error. Both effects are more pronounced on the neural network models. D Numerical Experiments: End-to-End Differential Privacy Weconsiderasyntheticclassificationdatasettoevaluatetheprivacy-utilitytradeoffof∆-FLunderend-to-end differential privacy. D.1 End-to-End Differential Privacy with ∆-FL To obtain an end-to-end differentially private version of ∆-FL, we modify the weight aggregation step of Algorithm 1 (line 9). Specially, we clip the weight updates and add Gaussian noise to obtain differential
+49
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+50 100 150 200 250 300
+# local data size ssoL niarT FedAvg
+0.6
+0.5
+0.4
+0.3
+0.2
+0.1
+0.0
+100 200 300 400 500
+# local data size rorrE
+.csiM tseT FedAvg
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+50 100 150 200 250 300
+# local data size ssoL niarT FL, =0.8
+0.6
+0.5
+0.4
+0.3
+0.2
+0.1
+0.0
+100 200 300 400 500
+# local data size rorrE
+.csiM tseT FL, =0.8
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+50 100 150 200 250 300
+# local data size ssoL niarT FL, =0.5
+0.6
+0.5
+0.4
+0.3
+0.2
+0.1
+0.0
+100 200 300 400 500
+# local data size rorrE
+.csiM tseT FL, =0.5
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+50 100 150 200 250 300
+# local data size ssoL niarT FL, =0.1
+0.6
+0.5
+0.4
+0.3
+0.2
+0.1
+0.0
+100 200 300 400 500
+# local data size rorrE
+.csiM tseT Scatter plot of losses and test misclassification error across across devices sizes for Sent140 (Linear Model) FL, =0.1
+1.2
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+50 100 150 200 250 300
+# local data size ssoL niarT FedAvg
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+100 200 300 400 500
+# local data size rorrE
+.csiM tseT FedAvg
+1.2
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+50 100 150 200 250 300
+# local data size ssoL niarT FL, =0.8
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+100 200 300 400 500
+# local data size rorrE
+.csiM tseT FL, =0.8
+1.2
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+50 100 150 200 250 300
+# local data size ssoL niarT FL, =0.5
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+100 200 300 400 500
+# local data size rorrE
+.csiM tseT FL, =0.5
+1.2
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+50 100 150 200 250 300
+# local data size ssoL niarT FL, =0.1
+1.0
+0.8
+0.6
+0.4
+0.2
+0.0
+100 200 300 400 500
+# local data size rorrE
+.csiM tseT Scatter plot of losses and test misclassification error across across devices sizes for Sent140 (LSTM Model) FL, =0.1 Figure 10: Scatter plot of (a) loss on training client vs. amount of local data, and (b) misclassification error on testing client vs. amount of local data for Sent140. privacy via the Gaussian mechanism. The overall algorithm is given in Algorithm 4. Privacy Accounting. We now discuss the privacy spent in each communication round. For simplicity, we assume the number m(t) = (cid:80) i∈S I(F i
+(w(t))
+≥ Q(t)) of selected clients is publicly known. Claim 20. Consider the setting of Algorithm 4 with noise scale σ , norm bound C and Algorithm 2 with b w bins and noise scale σ =σ . Each round of Algorithm 4 satisfies (1/2)ε2-concentrated DP where q
+1 1 (cid:40) c2log2b (cid:18) clog b (cid:19)2 (cid:41) σ2
+ε2 = min 2 +ψb, 2 +ψ√2b + w ,
+2 2 mσ2 √mσ 2C2 q q where ψ =10 (cid:80)m−1exp (cid:0) 2π2σ2i/(i+1) (cid:1) . i=1 − q Proof. The privacy bound of the quantile computation from Algorithm 2 is given by Theorem 6. Since
+(cid:13) (cid:13) the contribution δ(t) of each client has (cid:96) norm (cid:13)δ(t)(cid:13) C and we add Gaussian noise (0,σ2I ), the i 2 (cid:13) i (cid:13) ≤ N w d
+50
+Algorithm 4 The ∆-FL Algorithm with End-to-End Differential Privacy Input: Initial iterate w(0), number of communication rounds T, number of clients per round m, number of local updates τ, local step size γ, (cid:96) norm bound C for weight updates, noise variance σ2
+2 w
+1: for t=0,1,...,T 1 do
+2: Sample m clien−ts from [n] without replacement in S
+3: Estimate the (1 θ)-quantile of F i (w(t)) for i S with distributed differential privacy (Algorithm 2); call this Q(t − ) ∈
+5 4 : : f S o e r t m ea ( c t h ) = sel (cid:80) ec i t ∈ e S d I c (cid:0) li F en i ( t w i (t)) S ≥in Q p (t a ) (cid:1) rallel do
+∈
+6: Initialize w(t) =w(t) k,0
+7: for k =0,...,τ 1 do
+−
+8: w i ( , t k ) +1 =(1 − γλ)w i ( , t k ) − γ ∇ F i (w i ( , t k )) Define the norm-clipped update contributed by the client
+9:
+δ i (t) =   max (cid:110) C C ( , w (cid:13) (cid:13) (cid:13) i ( w , t τ ) i ( , t − τ ) w − ( w t) ( ) t) (cid:13) (cid:13) (cid:13) 2 (cid:111) , if F i (w(t)) ≥ Q(t)
+0 , else d
+10: Sample Gaussian noise ξ(t) ∼N (0,σ w 2I d ) and update
+1 (cid:88) w(t+1) =w(t)+ δ(t)+ξ(t) m(t) i i∈S
+11: return w T weight update step satisfies σ2/(2C2)-concentrated DP. The proof is completed by noting that concentrated w differential privacy composes additively. To obtain a bound on the concentrated DP of the entire algorithm, we rely on generic upper bounds of
+[105] for privacy amplification by subsampling. D.2 Experimental Setup We consider a synthetic classification dataset and train a linear model on it. Dataset Description. We create a 10-class classification dataset in d = 20 dimensions, inspired by [40]. The input x for each class k is drawn from a Gaussian of mean µ i and identity covariance in R 15. The means
+µ i ’s are the corners of a random polytope in R 15. We add 2 features that are linear combinations of the
+15 informative ones and 3 features that are pure noise. Overall, the dataset can be generated using the make_classification function of scikit-learn [76] as x, y = make_classification( n_samples=int(5e5), n_features=20, n_informative=15, n_redundant=2, n_repeated=0, n_classes=10, n_clusters_per_class=1, class_sep=5.0, hypercube=False , random_state=2345
+) We now split this dataset into a federated dataset with n=2500 training clients and n(cid:48) =500 validation and n(cid:48)(cid:48) = 500 test clients. The data distribution q (x,y) = q (y)q (xy) across the clients is designed to i i i
+|
+51
+exhibitalabelshift,i.e.,thedistributionq (y)overlabelsforeachclientisdifferentwhiletheclass-conditional i distribution q (xy =k)= (µ ,I ) is the same across clients. The class distribution q (y) on each training i k d i client i is drawn|from a DirNichlet distribution Dir(0.5), while that for a validation or test client is drawn from Dir(0.01). We sample 100 input-output pairs for each training, validation, and test client. Model and Per-Client Objective. We use a linear model (with intercept) on each client and the multinomial logistic loss, also known as the cross entropy loss, to define the per-client objective. Algorithms and Hyperparameters. We compare Algorithm 4 with DP-FedAvg [68], a version of FedAvg with differential privacy. Both algorithms used a single full gradient step per client with a fixed learning rate of 0.1. For each algorithm, we sample 100 clients per round and run the training for a total of 1000 rounds. We vary the privacy budget ε 3,5,10,15,20 and tune the following hyperparameters for each algorithm. For DP-FedAv∈g,{we tune the (cid:96) }norm bound (analogous to C in Algorithm 4) and set the noise scale σ
+2 w depending on the target privacy budget ε and the norm bound C. For Algorithm 4, we allocate r-times the privacy budget of the weight updates to the quantile updates. In addition, we also tune:
+• the loss upper bound B, so that all losses are truncated to [0,B],
+• the number of bins b in the hierarchical histogram,
+• the (cid:96) norm bound C for the weight update.
+2 We tune all 4 hyperparameters with a grid search and set the noise scale σ for the weight update, and σ /c w q for the quantile update depending on the selected hyperparameters and the privacy budget ε. The objective of the grid search was to minimize the 90th percentile of the misclassification errors across all validation clients. Therangesofthehyperparametersconsideredarequantileprivacyratior 0.1,0.25,0.5,0.75 ,lossupper bound B 0.7,0.9,1.1,1.3,1.5 ,, number of bins b 16,32,64 , and upd∈ate{norm C 0.9,1 } .1,1.3,1.5 .
+∈{ } ∈{ } ∈{ } References
+[1] N. Agarwal, P. Kairouz, and Z. Liu. The Skellam Mechanism for Differentially Private Federated Learning. In NeurIPS, 2021.
+[2] P. Artzner, F. Delbaen, J.-M. Eber, and D. Heath. Coherent Measures of Risk. Mathematical finance, 9
+(3):203–228, 1999.
+[3] A. Beck and M. Teboulle. Smoothing and First Order Methods: A Unified Framework. SIAM Journal on Optimization, 22(2):557–580, 2012.
+[4] A. Ben-Tal and M. Teboulle. An Old-New Concept of Convex Risk Measures: The Optimized Certainty Equivalent. Mathematical Finance, 17(3):449–476, 2007.
+[5] A. Ben-Tal, D. den Hertog, A. D. Waegenaere, B. Melenberg, and G. Rennen. Robust Solutions of Optimization Problems Affected by Uncertain Probabilities. Management Science, 59(2):341–357, 2013.
+[6] D. P. Bertsekas. Nonlinear Programming. 1999.
+[7] A. Bietti, C. Wei, M. Dudík, J. Langford, and Z. S. Wu. Personalization Improves Privacy-Accuracy Tradeoffs in Federated Learning. In ICML, volume 162, pages 1945–1962, 2022.
+[8] K. Bonawitz, V. Ivanov, B. Kreuter, A. Marcedone, H. B. McMahan, S. Patel, D. Ramage, A. Segal, and K. Seth. Practical Secure Aggregation for Privacy-Preserving Machine Learning. In ACM SIGSAC Conference on Computer and Communications Security, pages 1175–1191, 2017. Thelossatconvergencewasaround0.7,whilethatatrandomguessingislog10≈2.3. Thesecorrespondapproximatelytothe0.3,0.5,0.7,0.9quantilesoftheupdatenormsofFedAvgwithoutdifferentialprivacy, duringthelatterhalfoftraining.
+52
+[9] K. A. Bonawitz, H. Eichner, W. Grieskamp, D. Huba, A. Ingerman, V. Ivanov, C. Kiddon, J. Konečný, S. Mazzocchi, B. McMahan, T. V. Overveldt, D. Petrou, D. Ramage, and J. Roselander. Towards Federated Learning at Scale: System Design. In Proceedings of Machine Learning and Systems 2019, MLSys 2019, 2019.
+[10] L. Bottou, F. E. Curtis, and J. Nocedal. Optimization Methods for Large-Scale Machine Learning. Siam Review, 60(2):223–311, 2018.
+[11] T. S. Brisimi, R. Chen, T. Mela, A. Olshevsky, I. C. Paschalidis, and W. Shi. Federated learning of predictive models from federated Electronic Health Records. Int. J. Medical Informatics, 112:59–67,
+2018.
+[12] M. Bun and T. Steinke. Concentrated Differential Privacy: Simplifications, Extensions, and Lower Bounds. In M. Hirt and A. D. Smith, editors, Theory of Cryptography Conference, volume 9985, pages
+635–658, 2016.
+[13] S. Caldas, S. M. K. Duddu, P. Wu, T. Li, J. Konečný, H. B. McMahan, V. Smith, and A. Talwalkar. LEAF: A benchmark for federated settings. arXiv Preprint, 2018.
+[14] C.L.Canonne,G.Kamath,andT.Steinke. TheDiscreteGaussianforDifferentialPrivacy. InAdvances in Neural Information Processing Systems 33: Annual Conference on Neural Information Processing Systems 2020, NeurIPS 2020, December 6-12, 2020, virtual, 2020.
+[15] A. Cassel, S. Mannor, and A. Zeevi. A General Approach to Multi-Armed Bandits Under Risk Criteria. In Conference On Learning Theory, volume 75 of Proceedings of Machine Learning Research, pages
+1295–1306, 2018.
+[16] T. H. Chan, E. Shi, and D. Song. Private and Continual Release of Statistics. ACM Trans. Inf. Syst. Secur., 14(3):26:1–26:24, 2011.
+[17] Y. Chow, A. Tamar, S. Mannor, and M. Pavone. Risk-Sensitive and Robust Decision-Making: a CVaR Optimization Approach. In Advances in Neural Information Processing Systems 28, pages 1522–1530,
+2015.
+[18] Y. Chow, M. Ghavamzadeh, L. Janson, and M. Pavone. Risk-Constrained Reinforcement Learning with Percentile Risk Criteria. J. Mach. Learn. Res., 18:167:1–167:51, 2017.
+[19] G.Cohen, S.Afshar, J.Tapson, andA.vanSchaik. EMNIST:ExtendingMNISTtohandwrittenletters. In International Joint Conference on Neural Networks, pages 2921–2926, 2017.
+[20] L. Collins, H. Hassani, A. Mokhtari, and S. Shakkottai. Exploiting Shared Representations for Personalized Federated Learning. In International Conference on Machine Learning, volume 139, pages
+2089–2099, 2021.
+[21] G. Cormode, T. Kulkarni, and D. Srivastava. Answering Range Queries Under Local Differential Privacy. VLDB, 12(10):1126–1138, 2019.
+[22] S. Curi, K. Y. Levy, S. Jegelka, and A. Krause. Adaptive Sampling for Stochastic Risk-Averse Learning. In Neural Information Processing Systems, 2020.
+[23] D. Davis and D. Drusvyatskiy. Stochastic Model-Based Minimization of Weakly Convex Functions. SIAM Journal on Optimization, 29(1):207–239, 2019.
+[24] Y. Deng, M. M. Kamani, and M. Mahdavi. Distributionally Robust Federated Averaging. In Neural Information Processing Systems, 2020.
+[25] O. Devolder, F. Glineur, and Y. E. Nesterov. First-order methods of smooth convex optimization with inexact oracle. Math. Program., 146(1-2):37–75, 2014.
+53
+[26] A. Dieuleveut and K. K. Patel. Communication Trade-offs for Local-SGD with Large Step Size. In Advances in Neural Information Processing Systems, pages 13579–13590, 2019.
+[27] C. T. Dinh, N. Tran, and J. Nguyen. Personalized Federated Learning with Moreau Envelopes. In Proc. of NeurIPS, volume 33, pages 21394–21405, 2020.
+[28] D. Drusvyatskiy and C. Paquette. Efficiency of minimizing compositions of convex functions and smooth maps. Mathematical Programming, 178(1):503–558, 2019.
+[29] J. C. Duchi and H. Namkoong. Variance-based Regularization with Convex Objectives. Journal of Machine Learning Research, 20(68):1–55, 2019.
+[30] C. Dwork, K. Kenthapadi, F. McSherry, I. Mironov, and M. Naor. Our Data, Ourselves: Privacy Via Distributed Noise Generation. In EUROCRYPT, volume 4004 of Lecture Notes in Computer Science, pages 486–503, 2006.
+[31] C. Dwork, F. McSherry, K. Nissim, and A. D. Smith. Calibrating Noise to Sensitivity in Private Data Analysis. In Theory of Cryptography Conference, volume 3876 of Lecture Notes in Computer Science, pages 265–284, 2006.
+[32] C. Dwork, M. Naor, T. Pitassi, and G. N. Rothblum. Differential privacy under continual observation. In STOC, pages 715–724, 2010.
+[33] C. Dwork, F. McSherry, K. Nissim, and A. D. Smith. Calibrating Noise to Sensitivity in Private Data Analysis. J. Priv. Confidentiality, 7(3):17–51, 2016.
+[34] H.Eichner,T.Koren,B.McMahan,N.Srebro,andK.Talwar. Semi-CyclicStochasticGradientDescent. In ICML, volume 97, pages 1764–1773, 2019.
+[35] D. Evans, V. Kolesnikov, M. Rosulek, et al. A Pragmatic Introduction to Secure Multi-Party Computation. Foundations and Trends in Privacy and Security, 2(2-3):70–246, 2018.
+[36] H. Föllmer and A. Schied. Convex measures of risk and trading constraints. Finance Stochastics, 6,
+2002.
+[37] H. Föllmer and A. Schied. Stochastic Finance: An Introduction in Discrete Time. 2016. doi:
+10.1515/9783110463453.
+[38] T.Gafni,N.Shlezinger,K.Cohen,Y.C.Eldar,andH.V.Poor. FederatedLearning: ASignalProcessing Perspective. IEEE Signal Processing Magazine, 39(3):14–41, 2022. doi: 10.1109/MSP.2021.3125282.
+[39] A. Go, R. Bhayani, and L. Huang. Twitter Sentiment Classification using Distant Supervision. CS224N Project Report, Stanford, 2009.
+[40] I. Guyon. Design of experiments of the neurips 2003 variable selection benchmark. In NeurIPS 2003 Workshop on Feature Extraction and Feature Selection, volume 253, page 40, 2003.
+[41] F. Haddadpour, M. M. Kamani, M. Mahdavi, and V. Cadambe. Local SGD with Periodic Averaging: TighterAnalysisandAdaptiveSynchronization. InAdvances in Neural Information Processing Systems, pages 11080–11092, 2019.
+[42] A. Hard, K. Rao, R. Mathews, S. Ramaswamy, F. Beaufays, S. Augenstein, H. Eichner, C. Kiddon, and D. Ramage. Federated Learning for Mobile Keyboard Prediction. arXiv Preprint, 2018.
+[43] M.Hay,V.Rastogi,G.Miklau,andD.Suciu. BoostingtheAccuracyofDifferentiallyPrivateHistograms Through Consistency. VLDB, 3(1):1021–1032, 2010.
+54
+[44] J.-B.Hiriart-UrrutyandC.Lemaréchal. ConvexAnalysisandMinimizationAlgorithmsI:Fundamentals. Grundlehren der mathematischen Wissenschaften. 1996. ISBN 9783540568506.
+[45] S. Hochreiter and J. Schmidhuber. Long Short-Term Memory. Neural computation, 9(8):1735–1780,
+1997.
+[46] L. Huang, A. L. Shea, H. Qian, A. Masurkar, H. Deng, and D. Liu. Patient Clustering Improves EfficiencyofFederatedMachineLearningtoPredictMortalityandHospitalstaytimeusingDistributed Electronic Medical Records. Journal of Biomedical Informatics, 99, 2019.
+[47] P.Jain,J.Rush,A.D.Smith,S.Song,andA.G.Thakurta. DifferentiallyPrivateModelPersonalization. In NeurIPS, pages 29723–29735, 2021.
+[48] D. Jhunjhunwala, A. Gadhikar, G. Joshi, and Y. C. Eldar. Adaptive Quantization of Model Updates for Communication-Efficient Federated Learning. In IEEE International Conference on Acoustics, Speech and Signal Processing, pages 3110–3114, 2021.
+[49] P. Kairouz, Z. Liu, and T. Steinke. The Distributed Discrete Gaussian Mechanism for Federated Learning with Secure Aggregation. In ICML, volume 139, pages 5201–5212, 2021.
+[50] P.Kairouz, H.B.McMahan, B.Avent, A.Bellet, M.Bennis, A.N.Bhagoji, K.A.Bonawitz, Z.Charles, G. Cormode, R. Cummings, R. G. L. D’Oliveira, H. Eichner, S. E. Rouayheb, D. Evans, J. Gardner, Z. Garrett, A. Gascón, B. Ghazi, P. B. Gibbons, M. Gruteser, Z. Harchaoui, C. He, L. He, Z. Huo, B.Hutchinson,J.Hsu,M.Jaggi,T.Javidi,G.Joshi,M.Khodak,J.Konečný,A.Korolova,F.Koushanfar, S. Koyejo, T. Lepoint, Y. Liu, P. Mittal, M. Mohri, R. Nock, A. Özgür, R. Pagh, H. Qi, D. Ramage, R.Raskar,M.Raykova,D.Song,W.Song,S.U.Stich,Z.Sun,A.T.Suresh,F.Tramèr,P.Vepakomma, J. Wang, L. Xiong, Z. Xu, Q. Yang, F. X. Yu, H. Yu, and S. Zhao. Advances and Open Problems in Federated Learning. Found. Trends Mach. Learn., 14(1-2):1–210, 2021.
+[51] S.P.Karimireddy,S.Kale,M.Mohri,S.J.Reddi,S.U.Stich,andA.T.Suresh. SCAFFOLD:stochastic controlled averaging for federated learning. In International Conference on Machine Learning, volume
+119 of Proceedings of Machine Learning Research, pages 5132–5143, 2020.
+[52] A. Khaled, K. Mishchenko, and P. Richtárik. Tighter Theory for Local SGD on Identical and Heterogeneous Data. In International Conference on Artificial Intelligence and Statistics, 2020.
+[53] A. Koloskova, N. Loizou, S. Boreiri, M. Jaggi, and S. Stich. A Unified Theory of Decentralized SGD with Changing Topology and Local Updates. In ICML, 2020.
+[54] W. Kubiak. Proportional Optimization and Fairness. International Series in Operations Research & Management Science. 2008.
+[55] D. Kuhn, P. M. Esfahani, V. A. Nguyen, and S. Shafieezadeh-Abadeh. Wasserstein Distributionally Robust Optimization: Theory and Applications in Machine Learning. In Operations Research & Management Science in the Age of Analytics, pages 130–166. 2019.
+[56] Y. Laguel, J. Malick, and Z. Harchaoui. First-Order Optimization for Superquantile-Based Supervised Learning. In IEEE International Workshop on Machine Learning for Signal Processing, pages 1–6,
+2020.
+[57] Y. Laguel, K. Pillutla, J. Malick, and Z. Harchaoui. Device Heterogeneity in Federated Learning: A Superquantile Approach. arXiv preprint, 2020.
+[58] Y. Laguel, K. Pillutla, J. Malick, and Z. Harchaoui. A Superquantile Approach to Federated Learning with Heterogeneous Devices. In IEEE CISS, 2021.
+55
+[59] J. Lee and M. Raginsky. Minimax statistical learning with Wasserstein distances. In Advances in Neural Information Processing Systems, pages 2687–2696, 2018.
+[60] D. Levy, Y. Carmon, J. C. Duchi, and A. Sidford. Large-Scale Methods for Distributionally Robust Optimization. In Neural Information Processing Systems, 2020.
+[61] D. Levy, Y. Carmon, J. C. Duchi, and A. Sidford. Large-Scale Methods for Distributionally Robust Optimization. In Advances in Neural Information Processing Systems, 2020.
+[62] T. Li, A. K. Sahu, A. Talwalkar, and V. Smith. Federated Learning: Challenges, Methods, and Future Directions. IEEE Signal Processing Magazine, 37(3):50–60, 2020.
+[63] T. Li, A. K. Sahu, M. Zaheer, M. Sanjabi, A. Talwalkar, and V. Smith. Federated Optimization in Heterogeneous Networks. In MLSys. 2020.
+[64] T. Li, M. Sanjabi, and V. Smith. Fair Resource Allocation in Federated Learning. In International Conference on Learning Representations, 2020.
+[65] T. Li, A. Beirami, M. Sanjabi, and V. Smith. Tilted Empirical Risk Minimization. In International Conference on Learning Representations, 2021.
+[66] X. Li, K. Huang, W. Yang, S. Wang, and Z. Zhang. On the Convergence of FedAvg on Non-IID Data. In ICLR, 2020.
+[67] B.McMahan,E.Moore,D.Ramage,S.Hampson,andB.A.yArcas. Communication-EfficientLearning of Deep Networks from Decentralized Data. In AISTATS, pages 1273–1282, 2017.
+[68] H. B. McMahan, D. Ramage, K. Talwar, and L. Zhang. Learning Differentially Private Recurrent Language Models. In ICLR, 2018.
+[69] J.Mills, J.Hu, andG.Min. Communication-EfficientFederatedLearningforWirelessEdgeIntelligence in IoT. IEEE Internet Things J., 7(7):5986–5994, 2020.
+[70] M. Mohammadi Amiri and D. Gündüz. Machine Learning at the Wireless Edge: Distributed Stochastic Gradient Descent Over-the-Air. IEEE Transactions on Signal Processing, 68:2155–2169, 2020.
+[71] M. Mohri, G. Sivek, and A. T. Suresh. Agnostic Federated Learning. In ICML, 2019.
+[72] Y. Nesterov. Smooth minimization of non-smooth functions. Mathematical programming, 103(1):
+127–152, 2005.
+[73] E. Nurminskii. The quasigradient method for the solving of the nonlinear programming problems. Cybernetics, 9(1):145–150, 1973.
+[74] A. Pantelidou and A. Ephremides. Scheduling in Wireless Networks. Foundations and Trends in Networking. 2011.
+[75] M. Paulik, M. Seigel, H. Mason, D. Telaar, J. Kluivers, R. C. van Dalen, C. W. Lau, L. Carlson, F.Granqvist,C.Vandevelde,S.Agarwal,J.Freudiger,A.Byde,A.Bhowmick,G.Kapoor,S.Beaumont, Á.Cahill, D.Hughes,O.Javidbakht, F.Dong, R.Rishi,andS.Hung. FederatedEvaluationandTuning for On-Device Personalization: System Design & Applications. arXiv Preprint, 2021.
+[76] F. Pedregosa, G. Varoquaux, A. Gramfort, V. Michel, B. Thirion, O. Grisel, M. Blondel, P. Prettenhofer, R. Weiss, V. Dubourg, J. Vanderplas, A. Passos, D. Cournapeau, M. Brucher, M. Perrot, and E. Duchesnay. Scikit-learn: Machine learning in Python. Journal of Machine Learning Research, 12:
+2825–2830, 2011.
+56
+[77] J. Pennington, R. Socher, and C. D. Manning. GloVe: Global Vectors for Word Representation. In Empirical Methods in Natural Language Processing, pages 1532–1543, 2014.
+[78] K. Pillutla, K. Malik, A. Mohamed, M. Rabbat, M. Sanjabi, and L. Xiao. Federated Learning with Partial Model Personalization. In Proc. of ICML, volume 162, pages 17716–17758, 2022.
+[79] S. Ramaswamy, O. Thakkar, R. Mathews, G. Andrew, H. B. McMahan, and F. Beaufays. Training Production Language Models Without Memorizing User Data. arXiv Preprint, 2020.
+[80] S. J. Reddi, Z. Charles, M. Zaheer, Z. Garrett, K. Rush, J. Konečný, S. Kumar, and H. B. McMahan. Adaptive Federated Optimization. In International Conference on Learning Representations, 2021.
+[81] A. Reisizadeh, F. Farnia, R. Pedarsani, and A. Jadbabaie. Robust Federated Learning: The Case of Affine Distribution Shifts. In Neural Information Processing Systems, 2020.
+[82] A. Rezaei, A. Liu, O. Memarrast, and B. D. Ziebart. Robust Fairness Under Covariate Shift. In AAAI Conference on Artificial Intelligence, pages 9419–9427, 2021.
+[83] R. T. Rockafellar and S. Uryasev. Optimization of Conditional Value-at-Risk. Journal of Risk, 2:21–42,
+2000.
+[84] R. T. Rockafellar and S. Uryasev. Conditional Value-at-Risk for General Loss Distributions. Journal of banking & finance, 26(7):1443–1471, 2002.
+[85] R.T.RockafellarandS.Uryasev. TheFundamentalRiskQuadrangleinRiskManagement,Optimization and Statistical Estimation. Surveys in Operations Research and Management Science, 18(1-2):33–53,
+2013.
+[86] R. T. Rockafellar and R. J.-B. Wets. Variational analysis, volume 317. 2009.
+[87] R. T. Rockafellar, S. Uryasev, and M. Zabarankin. Risk tuning with generalized linear regression. Mathematics of Operations Research, 33(3):712–729, 2008.
+[88] A. Sani, A. Lazaric, and R. Munos. Risk-Aversion in Multi-armed Bandits. In Advances in Neural Information Processing Systems 25s, pages 3284–3292, 2012.
+[89] F. Sattler, K.-R. Müller, and W. Samek. Clustered Federated Learning: Model-Agnostic Distributed Multitask Optimization Under Privacy Constraints. IEEE Transactions on Neural Networks and Learning Systems, pages 1–13, 2020.
+[90] T.Sery,N.Shlezinger,K.Cohen,andY.C.Eldar. Over-the-AirFederatedLearningFromHeterogeneous Data. IEEE Transactions on Signal Processing, 69:3796–3811, 2021.
+[91] N. Shlezinger, M. Chen, Y. C. Eldar, H. V. Poor, and S. Cui. UVeQFed: Universal Vector Quantization for Federated Learning. IEEE Trans. Signal Process., 69:500–514, 2021.
+[92] A. D. Smith. Privacy-preserving Statistical Estimation with Optimal Convergence Rates. In STOC, pages 813–822, 2011.
+[93] A. D. Smith, A. Thakurta, and J. Upadhyay. Is Interaction Necessary for Distributed Private Learning? In IEEE Symposium on Security and Privacy, pages 58–77, 2017.
+[94] S.Stanczak,M.Wiczanowski,andH.Boche. FundamentalsofResourceAllocationinWirelessNetworks: Theory and Algorithms. Foundations in Signal Processing, Communications and Networking. 2009.
+[95] S. U. Stich. Local SGD Converges Fast and Communicates Little. In International Conference on Learning Representations, 2019.
+57
+[96] A. Tamar, Y. Chow, M. Ghavamzadeh, and S. Mannor. Policy Gradient for Coherent Risk Measures. In Advances in Neural Information Processing Systems 28, pages 1468–1476, 2015.
+[97] J. Wang, Q. Liu, H. Liang, G. Joshi, and H. V. Poor. Tackling the Objective Inconsistency Problem in Heterogeneous Federated Optimization. In Neural Information Processing Systems, 2020.
+[98] J. Wang, Z. Charles, Z. Xu, G. Joshi, H. B. McMahan, M. Al-Shedivat, G. Andrew, S. Avestimehr, K. Daly, D. Data, et al. A Field Guide to Federated Optimization. arXiv Preprint, 2021.
+[99] S. Wang, T. Tuor, T. Salonidis, K. K. Leung, C. Makaya, T. He, and K. Chan. Adaptive federated learninginresourceconstrainededgecomputingsystems. IEEEJ.Sel.AreasCommun.,37(6):1205–1221,
+2019.
+[100] K.Wei,J.Li,M.Ding,C.Ma,H.H.Yang,F.Farokhi,S.Jin,T.Q.S.Quek,andH.V.Poor. Federated Learning With Differential Privacy: Algorithms and Performance Analysis. IEEE Transactions on Information Forensics and Security, 15:3454–3469, 2020.
+[101] R. C. Williamson and A. K. Menon. Fairness Risk Measures. In International Conference on Machine Learning, 2019.
+[102] T. Yang, G. Andrew, H. Eichner, H. Sun, W. Li, N. Kong, D. Ramage, and F. Beaufays. Applied Federated Learning: Improving Google Keyboard Query Suggestions. arXiv Preprint, 2018.
+[103] M. Yurochkin, M. Agarwal, S. Ghosh, K. Greenewald, N. Hoang, and Y. Khazaeni. Bayesian Nonparametric Federated Learning of Neural Networks. In International Conference on Machine Learning, pages 7252–7261, 2019.
+[104] F.ZhouandG.Cong. OntheConvergencePropertiesofaK-stepAveragingStochasticGradientDescent Algorithm for Nonconvex Optimization. In International Joint Conference on Artifical Intelligence, pages 3219–3227, 07 2018.
+[105] Y. Zhu and Y. Wang. Poission Subsampled Rényi Differential Privacy. In Proc. of ICML, volume 97, pages 7634–7642, 2019.
+58

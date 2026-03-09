@@ -1,0 +1,736 @@
+An Inertial Newton Algorithm for Deep Learning Camille Castera∗ Jérôme Bolte
+† IRIT, Université de Toulouse, CNRS Toulouse School of Economics Toulouse, France Université de Toulouse Toulouse, France Cédric Févotte Edouard Pauwels
+† † IRIT, Université de Toulouse, CNRS IRIT, Université de Toulouse, CNRS Toulouse, France DEEL, IRT Saint Exupery Toulouse, France July 29, 2021 Abstract We introduce a new second-order inertial optimization method for machine learning called INNA. It exploits the geometry of the loss function while only requiring stochastic approximations of the function values and the generalized gradients. This makes INNA fully implementable and adapted to large-scale optimization problems such as the training of deep neural networks. The algorithm combines both gradient-descent and Newton-like behaviors as well as inertia. We prove the convergence of INNA for most deep learning problems. To do so, we provide a well-suited framework to analyze deep learning loss functions involving tame optimization in which we study a continuous dynamical system togetherwithitsdiscretestochasticapproximations. Weprovesublinearconvergenceforthe continuous-time differential inclusion which underlies our algorithm. Additionally, we also show how standard optimization mini-batch methods applied to non-smooth non-convex problems can yield a certain type of spurious stationary points never discussed before. We address this issue by providing a theoretical framework around the new idea of D-criticality; we then give a simple asymptotic analysis of INNA. Our algorithm allows for using an aggressive learning rate of o(1/logk). From an empirical viewpoint, we show that INNA returns competitive results with respect to state of the art (stochastic gradient descent, ADAGRAD, ADAM) on popular deep learning benchmark problems. Keywords. deeplearning,non-convexoptimization,second-ordermethods,dynamicalsystems, stochastic optimization
+1 Introduction Can we devise a learning algorithm for general deep neural networks (DNNs) featuring inertia and Newtonian directional intelligence only by means of backpropagation? In an optimization
+∗Corresponding author: camille.castera@protonmail.com
+†Last three authors are listed in alphabetical order.
+1
+1202 luJ
+82
+]GL.sc[
+6v87221.5091:viXra
+jargon: can we use second-order ideas in time and space for non-smooth non-convex optimization by only using a subgradient oracle? Before providing some answers to this question, let us have a glimpse at some fundamental optimization algorithms for training DNNs. The backpropagation algorithm is, to this day, the fundamental block to compute gradients in deep learning (DL). It is used in most instances of the Stochastic Gradient Descent (SGD) algorithm (Robbins and Monro, 1951). The latter is powerful, flexible, capable of handling large-size problems, noise, and further comes with theoretical guarantees of many kinds. We refer to Bottou and Bousquet (2008), Moulines and Bach (2011) in a convex machine learning context and Bottou et al. (2018) for a recent account highlighting the importance of DL applications and their challenges. In the non-convex setting, recent works of Adil (2018), Davis et al. (2020) follow the Ordinary Differential Equations (ODE) approach introduced in Ljung (1977), and further developed in Benaïm (1999), Kushner and Yin (2003), Benaïm et al. (2005), Borkar
+(2009). Two research directions have been explored in order to improve SGD’s training efficiency:
+– using local geometry of empirical loss functions to obtain steeper descent directions,
+– using past steps history to design larger step-sizes in the present. The first approach is akin to quasi-Newton methods while the second revolves around Polyak’s inertial method (Polyak, 1964). The latter is inspired by the following appealing mechanical thought-experiment. Consider a heavy ball evolving on the graph of the loss function (the loss function’s landscape), subject to gravity and stabilized by some friction effects. Friction generates energy dissipation, so that the particle will eventually reach a steady state which one hopes to be a local minimum. These two approaches are already present in the DL literature: among the most popular algorithms for training DNNs, ADAGRAD (Duchi et al., 2011) features local geometrical aspects while ADAM (Kingma and Ba, 2015) combines inertial ideas with stepsizes similar to the ones of ADAGRAD. Stochastic Newton and quasi-Newton algorithms have been considered by Martens (2010), Byrd et al. (2011, 2016) and recently reported performing efficiently on several problems (Berahas et al., 2020, Xu et al., 2020). The work of Wilson et al.
+(2017) demonstrates that carefully tuned SGD and heavy-ball algorithms are competitive with concurrent methods. However, deviating from the simplicity of SGD also comes with major challenges because of the high dimensionality of DL problems and the severe absence of regularity in DL (differential regularity is generally absent, but even weaker regularity such as semi-convexity or Clarke regularity are not always available). All sorts of practical and theoretical hardships are met: computing and even defining the Hessian is delicate, inverting them is unthinkable to this day, first and second-order Taylor approximations are unavailable due to non-smoothness, and finally one has to deal with “shocks” which are inherent to inertial approaches in a non-smooth context
+(“corners” and “walls” in the landscape of the loss function generate velocity discontinuity). This makes in particular the study of the popular algorithms ADAGRAD and ADAM in full generality quite difficult, with recent progresses reported in Barakat and Bianchi (2021). Our approach is inspired by the following continuous-time dynamical system introduced in Alvarez et al. (2002) and referred to as DIN (standing for “dynamical inertial Newton”):
+θ ¨ (t) + αθ ˙ (t) +β 2 (θ(t))θ ˙ (t)+ (θ(t)) = 0, for t [0,+ ), (1)
+∇ J ∇J ∈ ∞
+(cid:124)(cid:123)(cid:122)(cid:125) (cid:124) (cid:123)(cid:122) (cid:125) (cid:124) (cid:123)(cid:122) (cid:125) (cid:124) (cid:123)(cid:122) (cid:125) Inertialterm Frictionterm Newtonianeffects Gravityeffect where t is the time parameter which acts as a continuous epoch counter, is a given loss J function (e.g., the empirical loss in DL applications), for now assumed C2 (twice-differentiable), with gradient and Hessian 2 . It can be shown that solutions to (1) converge to critical
+∇J ∇ J
+2
+points of (Alvarez et al., 2002). As such the discretization of (1) can support the design of J algorithms that optimize and that leverage inertial properties with Newton’s method. To J adapt this dynamics to DL we must first overcome the computational or conceptual difficulties raised by the second-order objects θ ¨and 2 (θ) appearing in (1). To do this, we propose in
+∇ J this paper to combine a phase-space lifting method introduced in Alvarez et al. (2002) with the use of Clarke subdifferential ∂ . Clarke subdifferential defines a notion of differentiability J for non-convex and non-smooth functions. This approach results in the study of a first-order differential inclusion in place of (1), namely,
+(cid:40)
+θ ˙ (t)+β∂ (θ(t)) +(α 1)θ(t)+ 1ψ(t) 0 J − β β (cid:51) , for a.e. t (0,+ ). (2)
+ψ ˙ (t) +(α 1)θ(t)+ 1ψ(t) 0 ∈ ∞
+− β β (cid:51) This differential inclusion can then be discretized to obtain the practical algorithm INNA that is introduced in Section 2, together with a rigorous presentation of the concepts mentioned above. Computation of the (sub)gradients and convergence proofs (in batch or mini-batch settings) typically rely on the sum-rule in smooth or convex settings, i.e., ∂( + ) = ∂ + ∂ .
+1 2 1 2 J J J J Unfortunately this sum-rule does not hold in general in the non-convex setting using the standard Clarke subdifferential. Yet, many DL studies ignore the failure of the sum rule: they use it in practice, but circumvent the theoretical problem by modeling their method through simple dynamics (e.g., smooth or convex). We tackle this difficulty as is, and show that such practice can create additional spurious stationary points that are not Clarke-critical. To address this question, we introduce the notion of D-criticality. It is less stringent than Clarke-criticality and it describes more accurately real-world implementation. We then show convergence of INNA to such D-critical points. Our theoretical results are general, simple and allow for aggressive step-sizes in o(1/logk). We first provide adequate calculus rules and tame non-smooth Sard’s-like results for the new steady states we introduced. We then combine these results with a Lyapunov analysis from Alvarez et al. (2002) and the differential inclusion approximation method (Benaïm et al., 2005) to characterize the asymptotics of our algorithm similarly to Davis et al. (2020), Adil (2018). This provides a strong theoretical ground to our study since we can prove that our method converges to a connected component of the set of steady states even for networks with ReLU or other non-smooth activation functions. For the smooth deterministic dynamics, we also show that convergence in values is of the form O(1/t) where t is the running time. For doing so, we provide a general result for the solutions of a family of differential inclusions having a certain type of favorable Lyapunov functions. Our algorithm INNA shows great efficiency in practice. It has similar computational complexity to state-of-the-art methods SGD, ADAGRAD and ADAM, often achieves better training accuracy and shows good robustness to hyper-parameters selection. INNA can avoid parasitic oscillations and produce acceleration; a first illustration of the behavior of the induced dynamics is given in Figure 1 for a simple non-smooth and non-convex function in R2. The rest of the paper is organized as follows. INNA is introduced in details in Section 2 and its convergence is established in Section 3. Convergence rates of the underlying continuous-time differential inclusion are obtained in Section 4. Section 5 describes experimental DL results on synthetic and real data sets (MNIST, CIFAR-10, CIFAR-100).
+2 INNA: an Inertial Newton Algorithm for Deep Learning We first introduce our functional framework, then we describe step by step the process of building INNA from (1).
+3
+2.0
+1.5
+1.0
+0.5
+0.0
+2.0 1.5 1.0 0.5 0.0 0.5 1.0 1.5 2.0
+1
+2
+2.0
+1.5
+1.0
+0.5
+0.0
+2.0 1.5 1.0 0.5 0.0 0.5 1.0 1.5 2.0
+1
+2
+(a) α = 0.5, β = 0.01 (b) α = 0.5, β = 0.1
+2.0
+1.5
+1.0
+0.5
+0.0
+2.0 1.5 1.0 0.5 0.0 0.5 1.0 1.5 2.0
+1
+2
+2
+0
+2
+4
+6
+8
+0 20000 40000 60000 80000 Iterations
+))2
+,1
+(J(01gol
+=0.5, =0.01
+=0.5, =0.1
+=1.3, =0.1
+(c) α = 1.3, β = 0.1 (d) Objective function (in log-scale) J Figure 1: Illustration of INNA applied to the non-smooth function (θ ,θ ) = 100(θ θ )2 +
+1 2 2 1
+1 θ . Subplots (a-c) represent the trajectories of the paramete J rs θ and θ in R2 − fo | r th | ree
+1 1 2
+| − | choices of hyper-parameters α and β, see (1) for an intuitive explanation. Subplot (d) displays the values of the objective function (θ ,θ ) for the three settings considered.
+1 2 J
+2.1 Neural Networks with Lipschitz Continuous Prediction Function and Loss Functions We consider DNNs of a general type represented by a function f : (x,θ) RM RP y RD
+∈ × (cid:55)→ ∈ that is locally Lipschitz continuous in θ. This includes for instance feed-forward, convolutional or residual networks used with ReLU, sigmoid, or tanh activation functions. Recall that a function F : RP R is locally Lipschitz continuous, if for any θ RP, there exists a neighborhood V of
+→ ∈
+θ and a constant C > 0 such that for any θ ,θ V,
+1 2
+∈ F(θ ) F(θ ) C θ θ ,
+1 2 1 2
+| − | ≤ (cid:107) − (cid:107) where is any norm on RP. A function F : RP RD is locally Lipschitz continuous if each of its c (cid:107) o · o (cid:107) rdinates is locally Lipschitz continuous. → The variable θ RP is the parameter of the model (P can be very large), while x RM and y RD represent ∈ input and output data. For
+∈ ∈ instance, the vector x may embody an image while y is a label explaining its content. Consider further a data set of N samples (x ,y ) . Training the network amounts to finding a n n n=1,...,N value of the parameter θ such that, for each input data x of the data set, the output f(x ,θ) n n of the model predicts the real value y with good accuracy. To do so, we follow the traditional n approach of minimizing an empirical risk loss function, N
+(cid:88) RP θ (θ) = l(f(x ,θ),y ), (3) n n
+(cid:51) (cid:55)→ J n=1
+4
+where l : RD RD R is a locally Lipschitz continuous dissimilarity measure. In the sequel, for n 1, we × will s → ometimes denote by the n-th term of the sum: (θ) (cid:44) l(f(x ,θ),y ), n n n n so tha
+≥ t =
+(cid:80)N
+. Despite the non-s J moothness and the non-conve J xity of typical DL loss J n=1J n functions, they generally possess a very strong property sometimes called tameness. We now introduce this notion which is essential to obtain the convergence results of Section 3.
+2.2 Neural Networks and Tameness in a Nutshell Tameness refers to a ubiquitous geometrical property of loss functions and constraints encompassing most finite dimensional optimization problems met in practice. Prominent classes of tame objects are piecewise-linear or piecewise-polynomial objects (with finitely many pieces), and more generally, semi-algebraic objects. However, the notion is much more general, as we intend to convey below. The formal definition is given at the end of this subsection (Definition 1). Informally, sets or functions are called tame when they can be described by a finite number of basic formulas, inequalities, or Boolean operations involving standard functions such as polynomial, exponential, or max functions. We refer to Attouch et al. (2010) for illustrations, recipes and examples within a general optimization setting or Davis et al. (2020) for illustrations in the context of neural networks. The reader is referred to Van den Dries (1998), Coste (2000), Shiota (2012) for foundational material. To apprehend the strength behind tameness it is convenient to remember that it models non-smoothness by confining the study to sets and functions which are union of smooth pieces. This is the so-called stratification property of tame sets and functions. It was this property which motivated the term of tame topology,1 see Van den Dries (1998). In a non-convex optimization settings, the stratification property is crucial to generalize qualitative algorithmic results to non-smooth objects. Most finite dimensional DL optimization models we are aware of yield tame loss functions
+. To understand this assertion and illustrate the wide scope of tameness assumptions, let J us provide concrete examples (see also Davis et al. 2020). Assume that the DNNs under consideration are built from the following traditional components:
+– thenetworkarchitecturedescribingf isfixedwithanarbitrarynumberoflayersofarbitrary dimensions and arbitrary Directed Acyclic Graph (DAG) representing computations,
+– the activation functions are among classical ones: ReLU, sigmoid, SQNL, RReLU, tanh, APL, soft plus, soft clipping, and many others including multivariate activation functions
+(norm, sorting), or activation functions defined piecewise with polynomials, exponential and logarithm,
+– the dissimilarity function l is a standard loss such as (cid:96) norms, logistic loss or crossp entropy, or more generally a function defined piecewise using polynomials, exponentials and logarithms, then one can easily show, by elementary quantifier elimination arguments (property (iii) below), that the corresponding loss, , is tame. J For the sake of completeness, we provide below the formal definition of tameness and o-minimality. Definition 1. [o-minimal structure] (Coste, 2000, Definition1.5) An o-minimal structure on ( R,+,.) is a countable collection of sets = where each is itself a collection of q q≥1 q subsets of Rq, called definable subsets. They O mus { t O ha } ve the following p O roperties, for each q 1:
+≥
+1“La topologie modérée” wished for by Grothendieck.
+5
+(i) (Boolean properties) contains the empty set, is stable by finite union, finite intersection q O and complementation;
+(ii) (Lifting property) if A belongs to , then A R and R A belong to . q q+1 O × × O
+(iii) (Projection or quantifier elimination property) if Π : Rq+1 Rq is the canonical projection onto Rq then for any A in , the set Π(A) belongs to → . q+1 q O O
+(iv) (Semi-algebraicity) contains the family of algebraic subsets of Rq, that is, every set of q O the form
+θ Rq ζ(θ) = 0 ,
+{ ∈ | } where ζ : Rq R is a polynomial function.
+→
+(v) (Minimality property), the elements of are exactly the finite unions of intervals and
+1 O points. A mapping F : S Rm Rq is said to be definable in if its graph is definable in as a subset of Rm Rq. ⊂ For ill → ustration of o-minimality in the c O ontext of optimization one is r O eferred
+× to Attouch et al. (2010), Davis et al. (2020). From now on we fix an o-minimal structure and a set or a mapping definable O in will be called tame. O
+2.3 From DIN to INNA We describe in this section the construction of our proposed algorithm INNA from the discretization of the second-order ODE (1).
+2.3.1 Handling Non-smoothness and Non-convexity We first show how the formalism offered by Clarke’s subdifferential can be applied to generalize
+(1) to the non-smooth non-convex setting. Recall that the dynamical system (1) is described by,
+θ ¨ (t)+αθ ˙ (t)+β 2 (θ(t))θ ˙ (t)+ (θ(t)) = 0, (4)
+∇ J ∇J where is a twice-differentiable potential, α > 0, β > 0 are two hyper-parameters and
+θ : R J RP. We cannot exploit (4) directly since in most DL applications is not twice
++
+→ J differentiable (and even not differentiable at all). We first overcome the explicit use of the Hessian matrix 2 by introducing an auxiliary variable ψ : R RP like in Alvarez et al.
++
+∇ J →
+(2002). Consider the following dynamical system (defined for merely differentiable), J
+(cid:40)
+θ ˙ (t)+β (θ(t)) +(α 1)θ(t)+ 1ψ(t) = 0
+∇J − β β , for a.e. t (0,+ ). (5)
+ψ ˙ (t) +(α 1)θ(t)+ 1ψ(t) = 0 ∈ ∞
+− β β As explained in Alvarez et al. (2002), (4) is equivalent to (5) when is twice differentiable. Indeed, one can rewrite (4) into (5) by introducing ψ = βθ ˙ β2 (θ) J (αβ 1)θ. Conversely,
+− − ∇J − − one can substitute the first line of (5) into the second one to retrieve (4). Note however that (5) does not require the existence of second-order derivatives. Let us now introduce a new non-convex non-differentiable version of (5). By Rademacher’s theorem, locally Lipschitz continuous functions : RP R are differentiable almost everywhere. Denote by R the set of points where is differe J ntiable. → Then, RP R has zero Lebesgue measure. It follows that for any θ(cid:63) RP R, J there exists a sequence of poi \ nts in R whose limit is this θ(cid:63).
+∈ \ This motivates the introduction of the subdifferential due to Clarke (1990), defined next.
+6
+Definition 2 (Clarke subdifferential of Lipschitz functions). For any locally Lipschitz continuous function F : RP R, the Clarke subdifferential of F at θ RP, denoted ∂F(θ), is the set
+→ ∈ defined by,
+(cid:110) (cid:111)
+∂F(θ) = conv v RP (θ k ) k∈N R N , such that θ k θ and F(θ k ) v , (6)
+∈ | ∃ ∈ −k−→−∞→ ∇ −k−→−∞→ where conv denotes the convex hull operator. The elements of the Clarke subdifferential are called Clarke subgradients. The Clarke subdifferential is a nonempty compact convex set. It coincides with the gradient for smooth functions and with the traditional subdifferential for non-smooth convex functions. As already mentioned, and contrarily to the (sub)differential operator, it does not enjoy a sum rule. Thanks to Definition 2, we can extend (5) to non-differentiable functions. Since ∂ (θ) is a J set, we no longer study a differential equation but rather a differential inclusion, given by,
+(cid:40)
+θ ˙ (t)+β∂ (θ(t)) +(α 1)θ(t)+ 1ψ(t) 0 J − β β (cid:51) , for a.e. t (0,+ ). (7)
+ψ ˙ (t) +(α 1)θ(t)+ 1ψ(t) 0 ∈ ∞
+− β β (cid:51) For a given initial condition (θ ,ψ ) RP RP, we call solution (or trajectory) of this system
+0 0 any absolutely continuous curve (θ, ∈ ψ) fro × m R to RP RP for which (θ(0),ψ(0)) = (θ ,ψ )
++ 0 0
+× and (7) holds. We recall that absolute continuity amounts to the fact that θ is differentiable almost everywhere with integrable derivative and,
+(cid:90) t
+θ(t) θ(0) = θ ˙ (s)ds, for t [0,+ ).
+− ∈ ∞
+0 DuetothepropertiesoftheClarkesubdifferential, existenceofasolutiontodifferentialinclusions such as (7) is ensured, see Aubin and Cellina (2012); note however that uniqueness of the solution does not hold in general. We will now use the structure of (7) to build a new algorithm to train DNNs.
+2.3.2 Discretization of the Differential Inclusion To obtain the basic form of our algorithm, we discretize (7) according to the classical explicit Euler method. Given (θ,ψ) a solution of (7) and any time t , set θ = θ(t ) and ψ = ψ(t ). k k k k k Then, at time t = t +γ with γ positive small, one can approximate θ ˙ (t ) and ψ ˙ (t ) by k+1 k k k k+1 k+1
+θ θ ψ ψ
+˙ k+1 k ˙ k+1 k
+θ(t ) − , ψ(t ) − . k+1 k+1
+(cid:39) γ (cid:39) γ k k This discretization yields the following algorithm,
+ v ∂ (θ )
+ k k
+  ∈ J (cid:16) (cid:17)
+θ k+1 = θ k +γ k ( β 1 − α)θ k − β 1ψ k − βv k (8)
+ (cid:16) (cid:17)
+ ψ = ψ +γ (1 α)θ 1ψ k+1 k k β − k − β k Although the algorithm above is well-defined for our problem, it is not suited to DL. First, the computation of ∂ (θ ) is generally not possible since there is no general operational calculus k J for Clarke’s subdifferential; secondly, a mini-batch strategy must be designed to cope with the large dimension of DL problems which makes the absence of sum rule even more critical. The next section is meant to address these issues and design a practical algorithm.
+7
+2.3.3 INNA Algorithm and a New Notion of Steady States In order to compute or approximate the subdifferential of at each iteration and to cope with J large data sets, can be approximated by mini-batches, reducing the memory footprint and J computational cost of evaluation. For any B 1,...,N , let us define
+⊂ { }
+(cid:88)
+: θ l(f(x ,θ),y ). (9) B n n J (cid:55)→ n∈B Unlike in the differentiable case, subgradients do not in general sum up to a subgradient of the
+(cid:80) sum, that is ∂ (θ) = ∂l(f(x ,θ),y ) in general. To see this, take for example 0 = , J B (cid:54) n∈B n n |·|−|·| the Clarke subgradient of this function at 0 is 0 , whereas ∂( 0 )+∂( 0 ) = [ 1,1]+[ 1,1] =
+{ } | | −| | − −
+[ 2,2]. Standard DL solvers use backpropagation algorithms which implement smooth calculus
+− on non-smooth and non-convex objects. Due to the absence of qualification conditions, the resulting objects are not Clarke subgradients in general. In order to match the real-world practice of DL, we introduce a notion of steady states that corresponds to the stationary points generated by a generic mini-batch approach. As we shall see, this allows both for practical applications and convergence analysis (despite the sum rule failure for Clarke subdifferential). We emphasize once more that our goal is to capture the stationary points that are actually met in practice. For any B 1,...,N , we introduce the following objects,
+⊂ { } N
+(cid:88) (cid:88) D = ∂[l(f(x , ),y )], D = ∂[l(f(x , ),y )]. (10) B n n n n J · J · n∈B n=1 Observe that, for each B, we have D ∂ and that is differentiable almost everywhere B B B J ⊃ J J with D = ∂ = , see Clarke (1990). In particular D = ∂ almost everywhere so B B B J J {∇J } J J that the potential differences with the Clarke subgradient occur on a negligible set. When J is tame the equality even hold on the complement of a finite union of manifolds of dimension strictly lower than P—use the classical stratification results for o-minimal structures, Coste
+(2000). A point satisfying D (θ) 0 will be called D-critical. Note that Clarke-critical J (cid:51) points (0 ∂ ) are D-critical points but that the converse is not true. This terminology is
+∈ J motivated by favorable properties: sum and chain rules along curves (see Lemmas 3.2 and 3.3 below) and the existence of a tame Sard’s theorem (see Lemma 3.4). To our knowledge, this notion of a steady state has not previously been used in the literature and a direct approach modeling the mini-batch practice has never been considered before.2 While this notion is needed for the theoretical analysis, one should keep in mind that D is actually what is computed J numerically provided that the automatic differentiation library returns a Clarke subgradient. This computation is usually done with a backpropagation algorithm, similarly to the seminal method of Rumelhart and Hinton (1986). Ultimately, one can rewrite (7) by replacing ∂ by D , which yields a differential inclusion J J adapted to study mini-batch approximations of non-smooth loss functions . This reads, J
+(cid:40)
+θ ˙ (t)+βD (θ(t)) +(α 1)θ(t)+ 1ψ(t) 0 J − β β (cid:51) , for a.e. t (0,+ ). (11)
+ψ ˙ (t) +(α 1)θ(t)+ 1ψ(t) 0 ∈ ∞
+− β β (cid:51) Discretizing this system gives a workable version of INNA. Let us consider a sequence (B k ) k∈N of nonempty subsets of 1,...,N , chosen independently and uniformly at random with
+{ }
+2Following the first arXiv preprint of this work (Castera et al., 2019), Bolte and Pauwels (2020a) have further developed the present ideas and in particular the connection to the backpropagation algorithm.
+8
+replacement, and a sequence of positive step-sizes (γ k ) k∈N . For a given initialization (θ 0 ,ψ 0 ) RP RP, at iteration k 1, our algorithm reads, ∈
+× ≥
+ v D (θ )
+ k B k
+  ∈ J k (cid:16) (cid:17)
+(INNA) θ k+1 = θ k +γ k ( β 1 − α)θ k − β 1ψ k − βv k (12)
+ (cid:16) (cid:17)
+ ψ = ψ +γ (1 α)θ 1ψ k+1 k k β − k − β k Here again α > 0 and β > 0 are hyper-parameters of the algorithm. The mini-batch procedure forms a stochastic approximation of the deterministic dynamics obtained by choosing B = k
+1,...,N , i.e., when = (batch version). This can be seen by observing that the vectors B
+{ } J k J v above may be written as v = v˜ +η , where v˜ D (θ ) and η compensates for the missing k k k k k k k
+∈ J subgradients and can be seen as a zero-mean noise. Hence, INNA admits the following general abstract stochastic formulation,
+ w D (θ )
+ k k
+  ∈ J (cid:16) (cid:17)
+θ k+1 = θ k +γ k ( β 1 − α)θ k − β 1ψ k − βw k +ξ k (13)
+ (cid:16) (cid:17)
+ ψ = ψ +γ (1 α)θ 1ψ k+1 k k β − k − β k where (ξ k ) k∈N is a martingale difference noise sequence adapted to the filtration induced by
+(random) iterates up to k. While (12) is the version implemented in practice, its equivalent form (13) is more convenient for the convergence analysis of the next section. We stress that the equivalence between (12) and (13) relies on the use of D and would not hold with the use J of ∂ as in (8). J INNA in its general and practical form is summarized in Table 1. Inertial Newton Algorithm for Deep Learning (INNA) Objective function: = (cid:80)N , with : RP R locally Lipschitz. J n=1J n J n (cid:55)→ Hyper-parameters: (α,β) positive. Mini-batches: (B k ) k∈N , nonempty subsets of 1,...,N .
+{ } step-sizes: (γ k ) k∈N positive. Initialization: (θ ,ψ ) RP RP.
+0 0
+∈ × For k N:
+∈  (cid:80) v ∂[ (θ )]
+   k ∈ n∈B k (cid:16)J n k (cid:17)
+θ = θ +γ (1 α)θ 1ψ βv k+1 k k β − k − β k − k
+ (cid:16) (cid:17)
+ ψ = ψ +γ (1 α)θ 1ψ k+1 k k β − k − β k Table 1: INNA in a nutshell.
+3 Convergence Results for INNA We first state our main result.
+9
+3.1 Main result: Accumulation Points of INNA are Critical We now study the convergence of INNA. The main idea here is to prove that the discrete algorithm (12) asymptotically behaves like the solutions of the continuous differential inclusion (11). In addition to tameness, our main assumption is the following: Assumption 1 (Stochastic approximation). The sets (B k ) k∈N are taken independently uniformly
+(cid:80) at random with replacement. The step-size sequence γ is positive with γ = + and satisfies
+(cid:16) (cid:17) k k k ∞
+γ = o 1 , that is limsup γ logk = 0. k logk | k | k→+∞ Typical admissible choices are γ = C(k +1)−a with a (0,1], C > 0. The main theoretical k
+∈ result of the paper follows. Theorem 3.1 (INNA converges to the set of D-critical points of ). Assume that for J n 1,...,N , each is locally Lipschitz continuous, tame and that the step-sizes satn
+∈ { } J isfy Assumption 1. Set an initial condition (θ ,ψ ) and assume that there exists M > 0 such that
+0 0 sup k≥0 (θ k ,ψ k ) M almost surely, where (θ k ,ψ k ) k∈N are generated by INNA. Then, almost surely, (cid:107) any accu (cid:107) m ≤ ulation point θ ¯ of the sequence (θ k ) k∈N satisfies D (θ ¯ ) 0. In addition J (cid:51)
+( (θ k )) k∈N converges. J Before proving Theorem 3.1, we will first make some comments and illustrate this result.
+3.2 Comments on the Results of Theorem 3.1
+– On the step-sizes. First, Assumption 1 offers much more flexibility than the usual O(1/√k) assumption commonly used for SGD. We leverage the boundedness assumption on the norms of (θ ,ψ ), the local Lipschitz continuity and finite-sum structure of , so that the k k J noise is actually uniformly bounded and hence sub-Gaussian, allowing for much larger step-sizes than in the more common bounded second moment setting. See Benaïm et al.
+(2005, Remark 1.5) and Benaïm (1999) for more details. The interest of this aggressive strategy is highlighted in Figure 4 of the experimental section.
+– On the scope of the theorem. Our result actually holds for general locally Lipschitz continuous tame functions with finite-sum structure and for the general stochastic process under uniformly bounded martingale increment noise. We do not use any other specific structure of DL loss functions. Other variants could be considered depending on the assumptions on the noise, see Benaïm et al. (2005).
+– On D-criticality. The result of Theorem 3.1 states that the bounded discrete trajectories of INNA are attracted by the D-critical points. Recall that D-critical points include local minimizers and thus our theoretical finding agrees with our empirical observations that most initializations lead to “valuable weights” θ and to efficient training. In particular for smooth networks where is differentiable, limit points of INNA are simply critical points J of . The reader should however remember that when the algorithm is initialized on the J D-critical set, the algorithm is stationary as well, even when the initialization is non-Clarke critical. This last point shows that D-points are not introduced to simplify the analysis but to sharply model the use of mini-batch methods on non-convex and non-smooth problems. Hopefully, in practice one can expect to avoid such points with overwhelming probability. Indeed, Bolte and Pauwels (2020b) proved that SGD converges with probability one to the set of Clarke-critical points. In other words, D-critical points that are not Clarke-critical
+10
+are not seen by the dynamics (see also Bianchi et al. 2020). The key argument is to prove that the set of initializations and step-sizes that leads the algorithm to reach points where D = ∂ has zero-measure. The same result can be hoped for INNA. J (cid:54) J
+– On the boundedness assumption. The bounded assumption on the iterates is a classical assumption for first or second-order algorithms, see for instance Davis et al. (2020), Duchi and Ruan (2018). When using deterministic algorithms (i.e., without mini-batch approximations), properties such as the coercivity of can be sufficient to remove the J boundedness assumption for descent algorithms. This does not remain true when dealing with mini-batch approximations, yet, in the case of INNA, the coercivity of would J guarantee at least that the solutions of the continuous underlying differential inclusion
+(11) remain bounded. Indeed, we will prove in Section 3.4 that for any solution (θ,ψ) of
+(cid:13) (cid:13)2
+(11), the function E(θ(t),ψ(t)) (cid:44) 2(1+αβ) (θ(t))+(cid:13)(α 1)θ(t)+ 1ψ(t)(cid:13) is decreasing J (cid:13) − β β (cid:13) in time (see Lemma 3.6 hereafter). As a consequence, we cannot have (θ(t)) J −t−→−∞→ ∞ so θ(t) due to the coercivity of . In addition this guarantees ψ(t) as
+(cid:107) (cid:107) (cid:54)→ ∞ J (cid:107) (cid:107) (cid:54)→ ∞ well. However, DL loss functions are not coercive in general and studying the boundedness issue in DL or even for non-convex semi-algebraic problems is far beyond the scope of this paper. Let us however mention that it is not uncommon to project the iterates on a given large ball to ensure boundedness; this is a matter for future research.
+3.3 Preliminary Variational Results Prior to proving Theorem 3, we extend some results known for the Clarke subdifferential of tame functions to the operator D that we previously introduced. First, we recall a useful result of Davis et al. (2020) which follows from the projection formula in Bolte et al. (2007b). Lemma 3.2 (Chain rule for the Clarke subdifferential). Let : RP R be a locally Lipschitz J → continuous tame function, then admits a chain rule, meaning that for all absolutely continuous curves θ : R RP, θ is d J ifferentiable a.e. and for a.e. t 0,
++
+→ J ◦ ≥ d J (θ(t)) = θ ˙ (t),∂ (θ(t)) = θ ˙ (t),v , v ∂ (θ(t)). (14) dt (cid:104) J (cid:105) (cid:104) (cid:105) ∀ ∈ J Note that, even though is non-differentiable on RP, the function t (θ(t)) is differenJ (cid:55)→ J tiable for a.e. t > 0. Indeed, as introduced in Section 2.3.1, an absolutely continuous curve from t 0 to RP is differentiable for a.e. t > 0. This, combined with the chain-rule of Lemma 3.2
+≥ allows differentiating θ for a.e. t > 0 whenever is tame and locally Lipschitz continuous. J ◦ J Additionally, notice that the value of dJ(θ(t)) in (14) does not depend on the element v taken dt in ∂ (θ(t)) which justifies the notation θ ˙ (t),∂ (θ(t)) . J (cid:104) J (cid:105) Consider now a function with an additive finite-sum structure (such as in DL): N
+(cid:88)
+: RP θ (θ), (15) n J (cid:51) (cid:55)→ J n=1 where each : RP R is locally Lipschitz continuous and tame. We define for any θ RP n J (cid:55)→ ∈ N
+(cid:88) D (θ) = ∂ (θ). n J J n=1 The following lemma is a direct generalization of the above chain rule.
+11
+Lemma 3.3 (Chain rule for D ). Let be a sum of tame functions like in (15). Let c: [0,1] RP be an absolutely co J ntinuous J curve so that t (c(t)) is differentiable almost
+(cid:55)→ (cid:55)→ J everywhere. For a.e. t [0,1], and for all v D (c(t)),
+∈ ∈ J d
+(c(t)) = v,c˙(t) . dtJ (cid:104) (cid:105) Proof. By local Lipschitz continuity and absolute continuity, each is differentiable almost n J everywhere and Lemma 3.2 can be applied: d
+(c(t)) = v ,c˙(t) ,for all v ∂ (c(t)) and for a.e. t 0. n n n n dtJ (cid:104) (cid:105) ∈ J ≥ Thus N N d (cid:88) d (cid:88)
+(c(t)) = (c(t)) = v ,c˙(t) , n n dtJ dtJ (cid:104) (cid:105) n=1 n=1 for any v ∂ (c(t)), for all n = 1,...,N , and for a.e. t 0. This proves the desired n n
+∈ J { } ≥ result. We finish this section with a Sard lemma for D-critical values, in the spirit of Bolte et al.
+(2007b). Lemma 3.4 (A Sard’s theorem for tame D-critical values). Let, S = D-crit (cid:44) (cid:8) θ RP D (θ) 0 (cid:9) ,
+∈ | J (cid:51) then (S) is finite. J Proof. The set S is tame and hence it has a finite number of connected components. It is sufficient to prove that is constant on each connected component of S. Without loss of J generality, assume that S is connected and consider θ ,θ S. By Whitney regularity (Van
+0 1
+∈ den Dries, 1998, 4.15), there exists a tame continuous path Γ joining θ to θ . Because of
+0 1 the tame nature of the result, we should here conclude with only tame arguments and use the projection formula in Bolte et al. (2007b), but for convenience of readers who are not familiar with this result we use Lemma 3.2. Since Γ is tame, the monotonicity lemma (see for example Kurdyka 1998, Lemma 2) gives the existence of a finite collection of real numbers
+0 = a < a < ... < a = 1, such that Γ is C1 on each segment (a ,a ), j = 1,...,q. Applying
+0 1 q j−1 j Lemma 3.2 to each Γ , we see that is constant except perhaps on a finite number of
+|(ai,ai+1) J points, thus is constant by continuity. J
+3.4 Proof of Convergence for INNA Our approach follows the stochastic method for differential inclusions developed in Benaïm et al.
+(2005) for which the differential system (11) and its Lyapunov properties play fundamental roles. The steady states of (11) are given by, S = (cid:8) (θ,ψ) RP RP 0 D (θ),ψ = (1 αβ)θ (cid:9) . (16)
+∈ × | ∈ J − These points are initialization values for which the system does not evolve and remains constant. Observe that the first coordinates of these points are D-critical for and that conversely any J D-critical point of corresponds to a unique rest point in S. J
+12
+Definition 3 (Lyapunov function). Let A be a subset of RP RP, we say that E : RP RP R
+× × → is a Lyapunov function for the set A and the dynamics (11) if,
+(i) For any solution (θ,ψ) of (11) with initial condition (θ ,ψ ) RP RP, we have:
+0 0 E(θ(t),ψ(t)) E(θ ,ψ ) a.e. on R. ∈ ×
+0 0
+≤
+(ii) For any solution (θ,ψ) of (11) with initial condition (θ ,ψ ) RP RP A, we have:
+0 0 E(θ(t),ψ(t)) < E(θ ,ψ ) a.e. on R. ∈ × \
+0 0 In practice, to establish that a functional is Lyapunov, one can simply use differentiation through chain rule results, with in particular Lemma 3.2. In the context of INNA, we will use Lemma 3.3. To build a Lyapunov function for the dynamics (11) and the set S, consider the two following energy-like functions,
+ (cid:13) (cid:13)2
+E (θ(t),ψ(t)) = (1 √αβ)2 (θ(t))+ 1 (cid:13)(α 1)θ(t)+ 1ψ(t)(cid:13) min − J 2 (cid:13) − β β (cid:13) (17)
+(cid:13) (cid:13)2
+E (θ(t),ψ(t)) = (1+√αβ)2 (θ(t))+ 1 (cid:13)(α 1)θ(t)+ 1ψ(t)(cid:13) . max J 2 (cid:13) − β β (cid:13) Then the following lemma applies. Lemma 3.5 (Differentiation along DIN trajectories). Let (θ,ψ) be a solution of (11) with initial condition (θ ,ψ ). For a.e. t > 0, θ and ψ are differentiable at t, (11) holds,
+θ˙(t)−ψ˙(t) D (θ(t))
+0 0 β ∈ J and dE min (θ(t),ψ(t)) = (cid:13) (cid:13) (cid:13)√αθ ˙ (t) 1 (cid:16) ψ ˙ (t) θ ˙ (t) (cid:17) (cid:13) (cid:13) (cid:13) 2 dt −(cid:13) − √β − (cid:13) dE max (θ(t),ψ(t)) = (cid:13) (cid:13) (cid:13)√αθ ˙ (t)+ 1 (cid:16) ψ ˙ (t) θ ˙ (t) (cid:17) (cid:13) (cid:13) (cid:13) 2 dt −(cid:13) √β − (cid:13)
+(cid:13) (cid:13)2
+1 (cid:13) 1 1 (cid:13) Proof. Define E (θ,ψ) = λ (θ)+ (cid:13)(α )θ+ ψ(cid:13) . We aim to choose λ so that E is a
+λ λ J 2 (cid:13) − β β (cid:13) Lyapunov function. Because is tame and locally Lipschitz continuous, using Lemma 3.3 we know that for any absolutely J continuous trajectory θ : R RP and for a.e. t > 0,
++
+→ d J (θ(t)) = θ ˙ (t),D (θ(t)) = θ ˙ (t),v(t) , v(t) D (θ(t)). (18) dt (cid:104) J (cid:105) (cid:104) (cid:105) ∀ ∈ J Let θ and ψ be solutions of (DIN). For a.e. t 0, we can differentiate E (θ,ψ) to obtain
+λ
+≥ dE 1 1 1
+λ ˙ ˙
+(θ(t),ψ(t)) =λ θ(t),v(t) +(α ) θ(t),(α )θ(t)+ ψ(t) dt (cid:104) (cid:105) − β (cid:104) − β β (cid:105)
+(19)
+1 1 1
+˙
++ ψ(t),(α )θ(t)+ ψ(t)
+β(cid:104) − β β (cid:105) for all v(t) D (θ(t)). Using (11), we get 1(θ ˙ (t) ψ ˙ (t)) D (θ(t)) and ψ ˙ (t) = (α 1)θ(t)+
+∈ J β − ∈ J − −β
+1ψ(t) a.e. Choosing v(t) = 1(θ ˙ (t) ψ ˙ (t)) yields:
+β β −
+(cid:42) (cid:43) dE θ ˙ (t) ψ ˙ (t) 1 (cid:68) (cid:69) 1 (cid:68) (cid:69)
+λ ˙ ˙ ˙ ˙ ˙
+(θ(t),ψ(t)) = λ θ(t), − (α ) θ(t),ψ(t) ψ(t),ψ(t) . dt β − − β − β
+13
+Then, expressing everything as a function of θ ˙ and 1(ψ θ), one can show that a.e. on R :
+β − +
+(cid:13) (cid:13)2 dE (cid:13)θ ˙ (t) ψ ˙ (t)(cid:13) θ ˙ (t) ψ ˙ (t)
+λ (θ,ψ)(t) = α θ ˙ (t) 2 β(cid:13) − (cid:13) +(λ αβ 1) θ ˙ (t), −
+(cid:13) (cid:13) dt − (cid:107) (cid:107) − β − − (cid:104) β (cid:105)
+(cid:13) (cid:13)
+(cid:13) (cid:13) αβ +1 λθ ˙ (t) ψ ˙ (t) (cid:13) (cid:13) 2 (cid:18) (αβ +1 λ)2(cid:19) (cid:13) (cid:13)θ ˙ (t) ψ ˙ (t) (cid:13) (cid:13) 2
+= (cid:13)√αθ ˙ (t)+ − − (cid:13) β − (cid:13) − (cid:13) .
+(cid:13) (cid:13) (cid:13) (cid:13)
+− 2√α β − − 4α β
+(cid:13) (cid:13) (cid:13) (cid:13)
+(cid:16) (cid:17) We aim to choose λ so that E is decreasing that is β
+(αβ+1−λ)2
+> 0. This holds whenever
+λ − 4α
+(cid:2) (cid:3)
+λ (1 √αβ)2,(1+√αβ)2 . We choose λ = (1 √αβ)2, and λ = (1 + √αβ)2, for min max
+∈ − − these two values we obtain for a.e. t > 0 ,
+ (cid:13) (cid:16) (cid:17)(cid:13)2
+E ˙ (θ(t),ψ(t)) = (cid:13)√αθ ˙ (t)+ √ 1 θ ˙ (t) ψ ˙ (t) (cid:13)
+ λmin − (cid:13) β − (cid:13)
+(20)
+(cid:13) (cid:16) (cid:17)(cid:13)2
+ E ˙ (θ(t),ψ(t)) = (cid:13)√αθ ˙ (t) √ 1 θ ˙ (t) ψ ˙ (t) (cid:13)
+λmax − (cid:13) − β − (cid:13) Remark finally that by definition E = E and E = E . min λmin max λmax Recall that S = (cid:8) (θ,ψ) RP RP 0 DJ(θ),ψ = (1 αβ)θ) (cid:9) and define E = E + min
+∈ × | ∈ − E . By a direct integration argument, we obtain the following lemma. max Lemma 3.6 (E is Lyapunov function for INNA with respect to S). For all (θ ,ψ ) / S and for
+0 0
+∈ any solution (θ,ψ) with initial condition (θ ,ψ ),
+0 0 E(θ(t),ψ(t)) < E(θ ,ψ ), for a.e. t > 0. (21)
+0 0 We are now in position to provide the desired proof. Proof of Theorem 3.1 Lemmas 3.5 and 3.6 state that E is a Lyapunov function for the set S and the dynamics (11). Let C = θ RP (θ,ψ) S which is actually the set of
+{ ∈ | ∈ } D-critical points of . Using Lemma 3.4 of Section 3.3, (C) is finite. Moreover, since J J E(θ,ψ) = 2(1 + αβ) (θ) for all (θ,ψ) S, E takes a finite number of values on S, and in J ∈ particular, E(S) has empty interior. Denote by L the set of accumulation points of the sequences ((θ k ,ψ k )) k∈N produced by (12) starting at (θ ,ψ ) and L its projection on RP 0 . We have the 3 following properties:
+0 0 1
+×{ }
+– By assumption, we have (θ ,ψ ) M almost surely, for all k N. k k
+(cid:107) (cid:107) ≤ ∈
+– By local Lipschitz continuity ∂ (θ) is uniformly bounded for θ M and any B J (cid:107) (cid:107) ≤ B 1,...,N , hence the centered noise (ξ k ) k∈N is a uniformly bounded martingale
+⊂ { } difference sequence.
+– By Assumption 1, the sequence (γ k ) k∈N is chosen such that γ k = o( lo 1 gk ) (see Section 3.2). Then the sufficient conditions of Remark 1.5 of Benaïm et al. (2005) state that the discrete process (θ k ,ψ k ) k∈N asymptotically behaves like the solutions of (11). We can then combine Proposition 3.27 and Theorem 3.6 of Benaïm et al. (2005), to obtain that the limit set L of the discrete process is contained in the set S where the Lyapunov has vanishing derivatives. Thus, the set L (the set of the first coordinates of all accumulation points) contains only D-critical
+1 points of . In addition, E(L) is a singleton, and for all (θ,ψ) S, we have E(θ,ψ) = (θ), so J ∈ J
+(L ) is also a singleton and the theorem follows.
+1 J
+14
+4 Towards Convergence Rates for INNA In the previous section, connecting INNA to (11) was one of the keys to prove the convergence of the discrete dynamics. Let us now focus on the continuous dynamical system (7) in the deterministic case where and ∂ are not approximated anymore—we thus no longer use D J J J although this would be possible but would require more technical proofs. In this section and in this section only, we pertain to loss functions that are real semi-algebraic (a particular case J of tame functions).3 Recall that a set is called semi-algebraic if it is a finite union of sets of the form,
+θ RP ζ(θ) = 0,ζ (θ) < 0 i
+{ ∈ | } where ζ,ζ are real polynomial functions. A function is called semi-algebraic if its graph is i semi-algebraic. We will characterize the convergence rate of the solutions of the continuous-time system
+(7) to critical points. Let us first introduce an essential mechanism to obtain such convergence rates: the Kurdyka-Łojasiewicz (KL) property.
+4.1 The Non-smooth Kurdyka-Łojasiewicz Property for the Clarke Subdifferential The non-smooth Kurdyka-Łojasiewicz (KL) property, as introduced in (Bolte et al., 2010), is a measure of “amenability to sharpness” (as illustrated at the end of Section 4.3). Here we provide a uniform version for the Clarke subdifferential of semi-algebraic functions as in Bolte et al.
+(2007b) and Bolte et al. (2014). In the sequel we denote by “dist” any given distance on RP. Lemma 4.1 (Uniform Non-smooth KL Property for the Clarke Subdifferential). Let K be a nonempty compact set and let L : RP R be a semi-algebraic locally Lipschitz continuous
+→ function. Assume that L is constant on K, with value L(cid:63). Then there exist ε > 0, δ > 0, a (0,1) and ρ > 0 such that, for all
+∈ v (cid:8) v RP dist(v,K) < ε (cid:9) (cid:8) v RP L(cid:63) < L(v) < L(cid:63) +δ (cid:9) ,
+∈ ∈ | ∩ ∈ | it holds that,
+ρ(1 a)(L(v) L(v¯)) −a dist(0,∂L(v)) > 1. (22)
+− − The proof directly follows from the general inequality provided in Bolte et al. (2007b) or the local result of Bolte et al. (2007b) with the compactness arguments of Bolte et al. (2014, Lemma 6). In the sequel, we make an abuse of notation by writing ∂ ( ) (cid:44) dist(0,∂ ( )).
+(cid:107) J · (cid:107) J · To obtain a convergence rate we will use inequality (22) on the Lyapunov function E. But first we state a general result of convergence that is built around the KL property.
+4.2 A General Asymptotic Rate Result We state a general theorem that leads to the existence of a convergence rate. This theorem will hold in particular for (7). We start by stating the result.
+3We could extend the results of this section to more general objects including analytic functions on bounded sets. The semi-algebraicity assumption is made here for the sake of clarity.
+15
+Theorem 4.2. Let X : [0,+ ) RP be a bounded absolutely continuous trajectory and let L : RP R be a semi-algebra ∞ ic lo → cally Lipschitz continuous function. If there exists c > 0 such
+1
+→ that for a.e. t > 0, dL
+(X(t)) c (∂L)(X(t)) 2, (i)
+1 dt ≤ − (cid:107) (cid:107) then L(X(t)) converges to a limit value L(cid:63) and,
+(cid:18) (cid:19)
+1 L(X(t)) L(cid:63) = O .
+| − | t If in addition there exists c > 0 such that for a.e. t > 0,
+2 c X ˙ (t) (∂L)(X(t)) , (ii)
+2
+(cid:107) (cid:107) ≤ (cid:107) (cid:107) then, X converges to a critical point of L with a rate of the form O(1/tb) with b > 0.4 Proof. We first prove the convergence of L(X( )). Suppose that (i) holds. Since X is bounded
+· and L is continuous, L(X( )) is bounded. Moreover, from (i), L(X( )) is decreasing, so it
+· · converges to some value L(cid:63). To simplify suppose L 0 and L(cid:63) = 0. Define,
+≥ I = (cid:8) x RP L(x) = 0 (cid:9) .
+∈ | Suppose first that there exists s 0, such that X(s) I. Since L(X( )) is decreasing with limit
+≥ ∈ ·
+0, then for all t s, L(X(t)) = 0 and the convergence rate holds true. Let us thus ≥ assume that for all t 0, L(X(t)) > 0. The trajectory X is bounded in RP, hence there exists a compact set C R≥ P such that X(t) C for all t 0. Define K = I C. It
+⊂ ∈ ≥ ∩ is a compact set since I is closed (by continuity of L) and C is compact. Moreover, L is constant on K. As such by Lemma 4.1, there exist ε > 0, δ > 0, a (0,1) and a constant ρ > 0 such
+∈ that for all v (cid:8) v RP,dist(v,K) < ε (cid:9) 0 < L(v) < δ ,
+∈ ∈ ∩{ } it holds that
+−a
+ρ(1 a)(L(v)) dist(0,∂L(v)) > 1.
+− We have L(X(t)) 0 so there exists t 0 such that for all t t , 0 < L(X(t)) < δ. Without
+0 0
+→ ≥ ≥ loss of generality, we assume t = 0. Similarly, we have dist(X(t),K) 0, so we may assume
+0
+→ that for all t 0, dist(X(t),K) < ε. Thus, for all t 0,
+≥ ≥
+ρ(1 a)L(X(t))−a ∂L(X(t)) > 1.
+− (cid:107) (cid:107) Going back to assumption (i), for a.e. t > 0, one has dL
+(X(t)) c (∂L)(X(t)) 2,
+1 dt ≤ − (cid:107) (cid:107) but the KL property implies that for a.e. t > 0,
+1
+∂L(X(t)) 2 < L(X(t))2a.
+−(cid:107) (cid:107) −ρ2(1 a)2
+− Therefore, dL c
+(X(t)) < 1 L(X(t))2a. dt −ρ2(1 a)2
+−
+4In some cases we even have linear rates or finite convergence as detailed in the proof.
+16
+We consider two cases depending on the value of a. If 0 < a 1/2, then for t large, L(X(t)) < 1
+≤ so L(X(t))2a < L(X(t)) and hence,
+− − dL c
+1
+(X(t)) < L(X(t)), dt −ρ2(1 a)2
+− so we obtain a linear rate. When 1/2 < a < 1, we have for a.e. t > 0, d 1 d c L(X(t))−2a L(X(t)) = L(X(t))1−2a < 1 , (23) dt 1 2adt −(ρ2(1 a)2)
+− − with 1 2a < 0. We can integrate from 0 to t > 0:
+−
+(2a 1)c (2a 1)c L(X(t))1−2a > − 1 t+L(X(0))1−2a > − 1 t.
+ρ2(1 a)2 ρ2(1 a)2
+− −
+(cid:16) (cid:17) Since 1 < 1, one obtains a convergence rate of the form O t1− 1 2a . In both cases the rate
+1−2a −
+(cid:0) (cid:1) is at least O 1 . t We assume now that both (i) and (ii) holds and prove convergence of the trajectory with a convergence rate. Let t > s > 0, by the fundamental theorem of calculus and the triangular inequality,
+(cid:13)(cid:90) t (cid:13) (cid:90) t X(t) X(s) (cid:13) (cid:13) X ˙ (τ)dτ (cid:13) (cid:13) X ˙ (τ) dτ. (24)
+(cid:107) − (cid:107) ≤ (cid:13) (cid:13) ≤ (cid:107) (cid:107) s s We wish to bound X ˙ using L. Using the chain rule (Lemma 3.2 of Section 3.3), for a.e. τ > 0,
+(cid:107) (cid:107) d L(X(τ))1−a = (1 a)L(X(τ))−a X ˙ (τ),(∂L)(X(τ)) . (25) dτ − (cid:104) (cid:105) Then, from (i), we deduce that for a.e. τ > 0, dL X ˙ (τ),(∂L)(X(τ)) = (X(τ)) c (∂L)(X(τ)) 2, (26)
+1
+(cid:104) (cid:105) dτ ≤ − (cid:107) (cid:107) so d L(X(τ))1−a c (1 a)L(X(τ))−a (∂L)(X(τ)) 2. (27)
+1 dτ ≤ − − (cid:107) (cid:107) The KL property (22) implies that for a.e. τ > 0,
+1
+(1 a)L(X(τ))−a (∂L)(X(τ)) < . (28)
+− − (cid:107) (cid:107) −ρ Putting this in (27) and using assumption (ii) we finally obtain d c c c L(X(τ))1−a < 1 (∂L)(X(τ)) 1 2 X ˙ (τ) . (29) dt − ρ (cid:107) (cid:107) ≤ − ρ (cid:107) (cid:107) We can use that in (24),
+ρ (cid:90) t d X(t) X(s) L(X(τ))1−adτ
+(cid:107) − (cid:107) ≤ −c c dt
+1 2 s (30)
+ρ
+= (L(X(s))1−a L(X(t))1−a). c c −
+1 2 Then, using the convergence rate we already proved for L, we deduce that the Cauchy criterion holds for X inside the compact (hence complete) subset C RP containing the trajectory. Thus,
+⊂ X converges, and from (i) we have that liminf ∂L(X(t)) = 0 because ∂L has closed t→+∞
+(cid:107) (cid:107) graph. This shows that the limit is a critical point of L. Finally, taking the limit in (30) and using the convergence rate of L we obtain a rate for X as well.
+17
+Remark 1. Theorem 4.2 takes the form of a general recipe to obtain a convergence rate since it may be applied in many cases, to curves or flows, provided that a convenient Lyapunov function is given. Note also that it is sufficient for assumptions (i) and (ii) to hold only after some time t > 0 as in such case, one could simply do a time shift to use the theorem.
+0
+4.3 Application to INNA We now apply Theorem 4.2 to the deterministic continuous dynamical model of INNA (7). Theorem 4.3 (Convergencerates). Suppose that is semi-algebraic locally Lipschitz continuous J and lower bounded. Then, any bounded trajectory (θ,ψ) that solves (7) converges to a point
+(θ ¯ ,ψ ¯ ) S, with a convergence rate of the form O (cid:0) t−b (cid:1) with b > 0. Moreover, (θ(t)) converges to its l ∈ imit ¯ with rate (cid:12) (cid:12) (θ(t)) ¯(cid:12) (cid:12) = O (cid:0) 1 (cid:1) . J J J −J t Proof. Let(θ,ψ)beaboundedsolutionof (7). WewouldliketouseTheorem4.2withX = (θ,ψ), and a well-chosen function. In the proof of Theorem 3.1 we proved a descent property along
+(cid:13) (cid:13)2 the trajectory for the function E(θ,ψ) = 2(1+αβ) (θ)+(cid:13)(α 1)θ+ 1ψ(cid:13) . This function is J (cid:13) − β β (cid:13) semi-algebraic, locally Lipschitz continuous, so it remains to prove that (i) and (ii) hold for E along (θ,ψ). For t 0, denote w(t) = (α 1)θ(t)+ 1ψ(t), then according to Lemma 3.5 for a.e. t > 0,
+≥ − β β dE 1 (cid:16) (cid:17) 1 (cid:16) (cid:17)
+(θ(t),ψ(t)) = √αθ ˙ (t) ψ ˙ (t) θ ˙ (t) 2 √αθ ˙ (t)+ ψ ˙ (t) θ ˙ (t) 2 dt −(cid:107) − √β − (cid:107) −(cid:107) √β − (cid:107)
+2 2 (31)
+= 2α θ ˙ (t) 2 ψ ˙ (t) θ ˙ (t) 2 = 2α θ ˙ (t) 2 β∂ (θ(t)) 2
+− (cid:107) (cid:107) − β(cid:107) − (cid:107) − (cid:107) (cid:107) − β(cid:107) J (cid:107)
+= 2α β∂ (θ(t)) w(t) 2 2β ∂ (θ(t)) 2.
+− (cid:107)− J − (cid:107) − (cid:107) J (cid:107) On the other hand, by standard results on the sum rule, we have for all (θ,ψ) RP RP,
+∈ ×
+ (cid:16) (cid:17)
+(1+αβ)∂ (θ)+(α 1) (α 1)θ+ 1ψ
+∂E(θ,ψ) = 2 J (cid:16) − β (cid:17) − β β , (32)
+1 (α 1)θ+ 1ψ
+β − β β so for a.e. t > 0,
+2 (cid:13) (cid:13)2 (cid:13) (cid:13)2
+∂E(θ(t),ψ(t)) (cid:13) 1 (cid:13) (cid:13)1 (cid:13)
+(cid:107) (cid:107) =(cid:13)(1+αβ)∂ (θ(t))+(α )w(t)(cid:13) +(cid:13) w(t)(cid:13) . (33)
+4 (cid:13) J − β (cid:13) (cid:13)β (cid:13) We wish to find c > 0, such that 1dE + c1 ∂E 2 < 0. This follows from the following claim. Claim: let r 1 > 0, r R, r > 2 0 d , t the 4 n (cid:107) ther (cid:107) e exist C and C two positive constants such
+1 2 3 1 2 that for any a,b R, ∈
+∈ C (a2 +b2) (r a+r b)2 +r b2 C (a2 +b2). (34)
+1 1 2 3 2
+≤ ≤ Indeed, the function Q : (a,b) (r a+r b)2 +r b2 is a positive definite quadratic form, C
+1 2 3 1
+(cid:55)→ and C can be taken to be two eigenvalues of the positive definite matrix which represents Q.
+2 Hence (34) holds for all a and b. Applying the previous claim to (33) and (31) leads to the existence of c > 0 such that for
+1 a.e. t > 0, dE
+(θ(t),ψ(t)) c ∂E(θ(t),ψ(t)) 2,
+1 dt ≤ − (cid:107) (cid:107)
+18
+so assumption (i) holds for INNA. It now remains to show that (ii) of Theorem 4.2 holds i.e., that there exists c > 0 such that
+2
+(cid:16) (cid:17) for (θ,ψ) solution of (7) and for a.e. t > 0, ∂E(θ(t),ψ(t)) 2 c θ ˙ (t) 2 + ψ ˙ (t) 2 . Using
+2
+(cid:107) (cid:107) ≥ (cid:107) (cid:107) (cid:107) (cid:107)
+(7) and (33) we obtain:
+(cid:107) ∂E(θ(t),ψ(t)) (cid:107) 2 = (cid:13) (cid:13) (cid:13) 1 (1+αβ)θ ˙ (t)+ (cid:20) (α 1 ) 1 (1+αβ) (cid:21) ψ ˙ (t) (cid:13) (cid:13) (cid:13) 2 + 1 ψ ˙ (t) 2, (35)
+4 (cid:13)β − β − β (cid:13) β2(cid:107) (cid:107) and applying the claim (34) again to (35) one can show that there exist c > 0, such that for
+2 a.e. t > 0,
+(cid:16) (cid:17)
+∂E(θ(t),ψ(t)) 2 c θ ˙ (t) 2 + ψ ˙ (t) 2 .
+2
+(cid:107) (cid:107) ≥ (cid:107) (cid:107) (cid:107) (cid:107) So assumption (ii) holds for (7). To conclude, we can apply Theorem 4.2 to (7) and the proof is complete. Remark 2. (a) Since the discrete algorithm INNA asymptotically resembles its continuous-time version (see the proof of Theorem 3.1), the results above suggest that similar behaviors and rates could be hoped for INNA itself. Yet, these results remain difficult to obtain in the case of DL, in particular in the mini-batch setting because of the noise (ξ k ) k∈N .
+(b) The proof above is significantly simpler when αβ > 1 since Alvarez et al. (2002) proved that in this case, (7) is equivalent to a gradient system, thus assumptions (i) and (ii) of Theorem 4.2 instantly hold.
+(c) Theorems 4.2 and 4.3 can be adapted to the case where the Clarke subdifferential is replaced by D , but we do not state it here for the sake of simplicity. J
+(d) Theorems 4.2 and 4.3 are actually valid by assuming that belongs to a polynomially J bounded o-minimal structure. One of the most common instance of such structures is the one given by globally subanalytic sets (as illustrated in a example below). We refer to Bolte et al.
+(2007a) for a definition and further references. Let us now comment the results of Theorem 4.3. First, we restrained here to semi-algebraic loss functions , which are a subset of tame loss functions. Most networks, activation functions J and dissimilarity measures mentioned in Section 2.2 fall into this category. Nonetheless, the loss functions of the DL experiments of Section 5.2 are not semi-algebraic. Indeed, the dissimilarity measure l used is the cross-entropy: l(f(x ,θ),y ) =
+(cid:80)D
+1 log([f(x ,θ)] ). Such a n n − d=1 [yn] d =1 n d function cannot be described by polynomials and presents a singularity whenever [f(x ,θ)] = 0. n d Fortunately, due to the numerical precision but also to the “soft-max” functions often used in classification experiments, the outputs of the network f, for inputs restricted to a compact set, have values in [ε,1] for some small ε > 0. Therefore, the singularity at 0 is harmless and the cross-entropy acts as a globally subanalytic function. As a consequence the non-smooth
+Łojasiewicz inequality holds, and the theorems apply (see also numerical experiments). The rate of convergence of the trajectory in Theorem 4.3 is non-explicit in the sense that the exponent b > 0 is unknown in general. In the light of the proof of Theorem 4.2, this exponent depends on the KL exponent a of the Lyapunov function, which is itself hard to determine in practice. However, the intuition is that small exponents a may yield faster convergence rates
+(indeed, when a (0,1/2) we actually have a linear rate). As an example, for the function: t R t c with ∈ c > 1, the exponent at 0 is a = 1 1 and thus, the closer c is to 1, the smaller
+∈ (cid:55)→ | | − c a is, and the faster the convergence becomes.
+19
+5 Experiments In this section we first discuss the role and influence of the hyper-parameters of INNA using the
+2D example given in Figure 1. We then compare INNA with SGD, ADAGRAD and ADAM on deep learning problems for image recognition.
+5.1 Understanding the Role of the Hyper-parameters of INNA Both hyper-parameters α and β can be seen as damping coefficients from the viewpoint of mechanics as discussed by Alvarez et al. (2002) and sketched in the introduction. Recall the second-order time continuous dynamics which served as a model to the design of INNA:
+θ ¨ (t)+αθ ˙ (t)+β 2 (θ(t))θ ˙ (t)+ (θ(t)) = 0.
+∇ J ∇J This differential equation was inspired by Newton’s second law of dynamics asserting that the acceleration of a material point coincides with the sum of forces applied to the particle. As recalled in the introduction three forces are at stake: the gravity and two friction terms. The parameter α calibrates the viscous damping intensity as in the Heavy Ball friction method of Polyak (1964). It acts as a dissipation term but it can also be seen as a proximity parameter of the system with the usual gradient descent: the higher α is, the more DIN behaves like a pure gradient descent.5 On the other hand the parameter β can be seen as a Newton damping which takes into account the geometry of the landscape to brake or accelerate the dynamics in an adaptive anisotropic fashion, see Alvarez and Pérez (1998), Alvarez et al. (2002) for further insights. We now turn our attention to INNA, and illustrate the versatility of the hyper-parameters
+α and β in this case. We proceed on a 2D visual non-smooth ill-conditioned example à la Rosenbrock, see Figure 1. For this example, we aim to find the minimum of the function
+(θ ,θ ) = 100(θ θ )2+ 1 θ . This function has a V-shaped valley, and a unique critical
+1 2 2 1 1 J −| | | − | point at (1,1) which is also the global minimum. Starting from the point ( 1,1.5) (the black
+− cross), we apply INNA with constant steps γ = 10−4. Figure 1 shows that when β is too k small, the trajectory presents many transverse oscillations as well as longitudinal ones close to the critical point (subplot a). Then, increasing β significantly reduces transverse oscillations
+(subplot b). Finally, the longitudinal oscillations are reduced by choosing a higher α (subplot c). In addition, these behaviors are also reflected in the values of the objective function (subplot d). The orange curve (first setting) presents large oscillations. Moreover, looking at the red curve, corresponding to plot (c), there is a short period between 20,000 and 60,000 iterations when the decrease is slower than for the other values of α and β, but still it presents fewer oscillations. In the longer term, the third choice (α = 1.3, β = 0.1) provides remarkably good performance. The choice of these hyper-parameters may come with rates of convergence for convex and strongly convex smooth functions (Attouch et al., 2020). Following this work, one may also consider to make α and β vary in time (for example like the famous Nesterov damping coefficient
+α). In our DL experiments we will however keep these parameters constant so that our theorems t still hold. Yet, different behaviors depending on (α,β) can also be observed for DL problems as illustrated on Figure 2 and described next. Although we did not evidence some universal method to choose (α,β), we used mechanical intuitions to tune these parameters. The coefficient
+α induces viscous damping, thus one may try to reduce it when convergence appears to be slow. On the other hand, one may want to increase β when large oscillations are observed. Yet, since
+β affects directly the subgradient effect in (12), taking β too large may jeopardize the numerical
+5This is easier to see when one rescales by α. J
+20
+(a) CIFAR-10 (b) CIFAR-100 (c) MNIST
+0.40
+0.20
+0.00
+-0.20
+-0.40
+-0.60
+-0.80
+-1.00
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J(01gol:gniniarT
+0.60
+0.40
+0.20
+0.00
+-0.20
+-0.40
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J(01gol:gniniarT
+0.50
+0.00
+-0.50
+-1.00
+-1.50
+-2.00
+-2.50
+-3.00
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J(01gol:gniniarT
+0.80
+0.70
+0.60
+0.50
+0.40
+0.30
+0.20
+0.10
+0 25 50 75 100 125 150 175 200 Epochs ycaruccAtseT
+0.50
+0.40
+0.30
+0.20
+0.10
+0.00
+0 25 50 75 100 125 150 175 200 Epochs ycaruccAtseT
+1.00
+0.99
+0.98
+0.97
+0.96
+0.95
+0 25 50 75 100 125 150 175 200 Epochs ycaruccAtseT
+0.60
+0.40
+0.20
+0.00
+-0.20
+-0.40
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J( gol
+:gniniarT
+01 INNA, INNA,
+(α,β)=(0.1,0.1) (α,β)=(0.5,0.5) INNA, INNA,
+(α,β)=(0.5,0.1) (α,β)=(0.5,1.0) Figure 2: Analysis of the sensibility of INNA to the choice of α and β using NiN for three different image classification problems. Top: logarithm of the loss function (θ) during the J training. Bottom: classification accuracy on the test set. stability of the algorithm. It would be interesting to relate the roles of these coefficients with more structural aspects of the dynamics. Indeed, as mentioned in Remark 2-b, when αβ 1,
+≥
+(11) can be shown to be a gradient system. On the other hand, when αβ < 1 the dynamics is of a different type, we refer to Alvarez et al. (2002) for further comments on this matter.
+5.2 Training a DNN with INNA Before comparing INNA to state-of-the-art algorithms in DL, we first describe the methodology that we followed.
+5.2.1 Methodology
+– We train a DNN for classification using the three most common image data sets (MNIST, CIFAR-10, CIFAR-100) (LeCun et al., 1998, Krizhevsky, 2009). These data sets are composed of 60,000 small images associated with a label (numbers, objects, animals, etc.). We split the data sets into 50,000 images for training and 10,000 for testing.
+– Regarding the network, we use a slightly modified version of the popular Network in Network (NiN) (Lin et al., 2014). It is a reasonably large convolutional network with P 106 parameters to optimize. We use ReLU activation functions.
+∼
+21
+– The dissimilarity measure l that is used in the empirical loss given by (3) is set to J the cross-entropy. The loss function is optimized with respect to θ (the weights of the J DNN) on the training data. The classification accuracy of the trained DNN is measured using the test data of 10,000 images. Measuring the accuracy boils down to counting how many of the 10,000 were correctly classified (in percentage).
+– Based on the results of Section 5.1, we run INNA for four different values of (α,β):
+(α,β) (0.1,0.1),(0.5,0.1),(0.5,0.5),(0.5,1) .
+∈ { } Given an initialization of the weights θ , we initialize ψ such that the initial velocity is in
+0 0 the direction of (θ ). More precisely, we use ψ = (1 αβ)θ (β2 β) (θ ).
+0 0 0 0
+−∇J − − − ∇J
+– We compare our algorithm INNA with the classical SGD algorithm and the popular ADAGRAD (Duchi et al., 2011) and ADAM (Kingma and Ba, 2015) algorithms. At each iteration k, we compute the approximation of ∂ (θ) on a subset B 1,...,50,000 k J ⊂ { } of size 32. The algorithms are initialized with the same random weights (drawn from a normal distribution). Five random initializations are considered for each experiment.
+– Regarding the selection of step-sizes, ADAGRAD and ADAM both use an adaptive procedure based on past gradients, see Duchi et al. (2011), Kingma and Ba (2015). For the other two algorithms (INNA and SGD), we use the classical step-size schedule γ = √ γ0 , k k+1 which meets Assumption 1. For all four algorithms, choosing the right initial step length
+γ is often critical in terms of efficiency. We choose this γ using a grid-search: for each
+0 0 algorithm we select the initial step-size that most decreases the training error after J fifteen epochs (one epoch consisting in a complete pass over the data). The test data is not used to choose the initial step-size nor other hyper-parameters. Note that we could use more flexible step-size schedules but chose a standard schedule for simplicity. Other decay schemes are considered in Figure 4. For these experiments, we used Keras 2.2.4 (Chollet, 2015) with Tensorflow 1.13.1 (Abadi et al., 2016) as backend. The INNA algorithm is available in Pytorch, Keras and Tensorflow: https://github.com/camcastera/Inna-for-DeepLearning/ (Castera, 2019).
+5.2.2 Results Figure 2 displays the training loss and test accuracy with respect to epochs for INNA in its J four hyper-parameter configurations considered and for the three data sets considered. Figure 3 displays the performance of INNA with the hyper-parameter configuration that led to the smallest average training error in Figure 2, with comparison to SGD, ADAGRAD and ADAM. In these two figures (and also in subsequent Figure 4), solid lines represent mean values and pale surfaces represent the best and worst runs in terms of training loss and validation accuracy over five random initializations. Figure 2 suggests that the tuning of the hyper-parameters α and β is not crucial to obtain satisfactory results both for training and testing. It mostly affects the training speed. Thus, INNA looks quite stable with respect to these hyper-parameters. Setting (α,β) = (0.5,0.1) appears to be a good default choice when necessary. Nevertheless, tuning these hyper-parameters is of course advised to get the most from INNA. Figure 3 shows that best performing methods achieve state-of-the art accuracy using NiN and represent what can be achieved with a moderately large network and coarse grid-search
+22
+(a) CIFAR-10 (b) CIFAR-100 (c) MNIST
+1.0
+0.5
+0.0
+-0.5
+-1.0
+0.0 25.0 50.0 75.0 100.0 125.0 150.0 175.0 200.0 Epochs
+))θ(J(01gol:gniniarT
+0.80
+0.60
+0.40
+0.20
+0.00
+-0.20
+-0.40
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J(01gol:gniniarT
+0.50
+0.00
+-0.50
+-1.00
+-1.50
+-2.00
+-2.50
+-3.00
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J(01gol:gniniarT
+0.80
+0.70
+0.60
+0.50
+0.40
+0.30
+0.20
+0.10
+0 25 50 75 100 125 150 175 200 Epochs ycaruccAtseT
+0.50
+0.40
+0.30
+0.20
+0.10
+0.00
+0 25 50 75 100 125 150 175 200 Epochs ycaruccAtseT
+1.00
+0.99
+0.98
+0.97
+0.96
+0.95
+0 25 50 75 100 125 150 175 200 Epochs ycaruccAtseT
+0.80
+0.60
+0.40
+0.20
+0.00
+-0.20
+-0.40
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J( gol
+:gniniarT
+01 INNA, SGD
+(α,β)=(0.1,0.1) ADAM INNA, ADAGRAD (α,β)=(0.5,0.1) Figure 3: Comparison of INNA with state-of-the-art algorithms SGD, ADAM and ADAGRAD. Top: logarithm of the loss function (θ) during the training. Bottom: classification accuracy J on the test set. tuning of the initial step-size. In our comparison, INNA and ADAM outperform SGD and ADAGRAD for training. While ADAM seems to be faster in the early training phase, INNA achieves the best accuracy almost every time especially on CIFAR-100 (Figure 3(b)). Thus, INNA appears to be competitive in comparison to other algorithms with the advantage of having solid theoretical foundations and a simple step-size rule as compared to ADAM and ADAGRAD. Finally, let us point out that although ADAM was faster in the experiments of Figure 3, INNA can outperform ADAM using the slow step-size decay discussed in Section 3.2. Indeed, in the previous experiments we used a standard decreasing step-size of the form γ /√k +1 for
+0 simplicity, but Assumption 1 allows for step-sizes decreasing much more slowly. As such, we also considered decays of the form γ (k+1)−q with q 1/2. The results are displayed on top of
+0
+≤ Figure 4. Except when q is too small (too slow decay, e.g., q = 1/16), these results show that some decays slower than q = 1/2 make INNA a little faster than any of the other algorithms we tried. In particular, with a step-size decay proportional to k−1/4, INNA outperforms ADAM
+(bottom of Figure 4). This suggests that tuning q can also significantly accelerate the training process.
+6 Conclusion We introduced a novel stochastic optimization algorithm featuring inertial and Newtonian behavior motivated by applications to deep learning. We provided a powerful algorithmic convergence
+23
+(a) CIFAR-10 (b) CIFAR-100 (c) MNIST
+0.40
+0.20
+0.00
+-0.20
+-0.40
+-0.60
+-0.80
+-1.00
+-1.20
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J(01gol:gniniarT
+0.60
+0.40
+0.20
+0.00
+-0.20
+-0.40
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J(01gol:gniniarT
+1.00
+0.00
+-1.00
+-2.00
+-3.00
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J(01gol:gniniarT
+0.6
+0.4
+0.2
+0.0
+0.2
+−
+0.4 −
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J( gol
+:gniniarT
+01 k 1/2 k 1/8
+− − k 1/4 k 1/16
+− −
+0.40
+0.20
+0.00
+-0.20
+-0.40
+-0.60
+-0.80
+-1.00
+-1.20
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J(01gol:gniniarT
+0.60
+0.40
+0.20
+0.00
+-0.20
+-0.40
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J(01gol:gniniarT
+0.50
+0.00
+-0.50
+-1.00
+-1.50
+-2.00
+-2.50
+-3.00
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J(01gol:gniniarT
+0.60
+0.40
+0.20
+0.00
+-0.20
+-0.40
+0 25 50 75 100 125 150 175 200 Epochs
+))θ(J( gol
+:gniniarT
+01 ADAM INNAwithdecrease k 1/4
+−
+∝ Figure 4: On top: Training loss of INNA on three image classification problems with various step-size decays. In the legend, k−q means a step-size decay at iteration k of the form γ = γ k−q. k 0 The bottom row show the comparison between INNA with a well-chosen step-size decay and ADAM. analysis under weak hypotheses applicable to most DL problems. We also provided new general results to study differential inclusions on Clarke subdifferential and obtain convergence rates for the continuous-time counterpart of our algorithm. We would like to point out that, apart from SGD (Davis et al., 2020), the convergence of concurrent methods in such a general setting is still an open question. Our result seems moreover to be the first one to be able to rigorously handle the analysis of mini-batch sub-sampling for ReLU DNNs via the introduction of the D-critical points. Our experiments show that INNA is very competitive with state-of-the-art algorithms for DL but also very malleable. We stress that these numerical manipulations were performed on substantial DL benchmarks with only limited algorithm tuning. This facilitates reproducibility and allows staying as close as possible to the reality of DL applications in machine learning. Acknowledgments The authors acknowledge the support of the European Research Council (ERC FACTORYCoG-6681839), the Agence Nationale de la Recherche (ANR 3IA-ANITI, ANR-17-EURE-0010 CHESS, ANR-19-CE23-0017 MASDOL) and the Air Force Office of Scientific Research (FA955018-1-0226).
+24
+Part of the numerical experiments were done using the OSIRIM platform of IRIT, supported by the CNRS, the FEDER, Région Occitanie and the French government (http://osirim. irit.fr/site/en). We thank the development teams of the following libraries that were used in the experiments: Python (Rossum, 1995), Numpy (Walt et al., 2011), Matplotlib (Hunter,
+2007), Pytorch (Paszke et al., 2019), Tensorflow and Keras (Abadi et al., 2016, Chollet, 2015). The authors thank the anonymous reviewers for their comments which helped to improve the paper and thank Hedy Attouch and Sixin Zhang for useful discussions. References Abadi, M., Barham, P., Chen, J., Chen, Z., Davis, A., Dean, J., Devin, M., Ghemawat, S., Irving, G., Isard, M., et al. (2016). Tensorflow: A system for large-scale machine learning. In Proceedings of USENIX Symposium on Operating Systems Design and Implementation
+(OSDI), pages 265–283. Adil, S. (2018). Opérateurs monotones aléatoires et application à l’optimisation stochastique. PhD Thesis, Paris Saclay. Alvarez, F., Attouch, H., Bolte, J., and Redont, P. (2002). A second-order gradient-like dissipative dynamical system with Hessian-driven damping: Application to optimization and mechanics. Journal de Mathématiques Pures et Appliquées, 81(8):747–779. Alvarez, F. and Pérez, J. M. (1998). A dynamical system associated with Newton’s method for parametric approximations of convex minimization problems. Applied Mathematics and Optimization, 38:193–217. Attouch, H., Bolte, J., Redont, P., and Soubeyran, A. (2010). Proximal alternating minimization and projection methods for nonconvex problems: An approach based on the KurdykaŁojasiewicz inequality. Mathematics of Operations Research, 35(2):438–457. Attouch, H., Chbani, Z., Fadili, J., and Riahi, H. (2020). First-order optimization algorithms via inertial systems with Hessian driven damping. Mathematical Programming. Aubin, J.-P. and Cellina, A. (2012). Differential inclusions: set-valued maps and viability theory. Springer. Barakat, A.andBianchi, P.(2021). ConvergenceanddynamicalbehavioroftheADAMalgorithm for nonconvex stochastic optimization. SIAM Journal on Optimization, 31(1):244–274. Benaïm, M. (1999). Dynamics of stochastic approximation algorithms. In Séminaire de Probabilités XXXIII, pages 1–68. Springer. Benaïm, M., Hofbauer, J., and Sorin, S. (2005). Stochastic approximations and differential inclusions. SIAM Journal on Control and Optimization, 44(1):328–348. Berahas, A. S., Bollapragada, R., and Nocedal, J. (2020). An investigation of Newton-sketch and subsampled Newton methods. Optimization Methods and Software, 35(4):661–680. Bianchi, P., Hachem, W., and Schechtman, S. (2020). Convergence of constant step stochastic gradient descent for non-smooth non-convex functions. arXiv preprint arXiv:2005.08513.
+25
+Bolte, J., Daniilidis, A., and Lewis, A. (2007a). The Łojasiewicz inequality for nonsmooth subanalytic functions with applications to subgradient dynamical systems. SIAM Journal on Optimization, 17(4):1205–1223. Bolte, J., Daniilidis, A., Lewis, A., and Shiota, M. (2007b). Clarke subgradients of stratifiable functions. SIAM Journal on Optimization, 18(2):556–572. Bolte, J., Daniilidis, A., Ley, O., and Mazet, L. (2010). Characterizations of Łojasiewicz inequalities: subgradient flows, talweg, convexity. Transactions of the American Mathematical Society, 362(6):3319–3363. Bolte, J. and Pauwels, E. (2020a). Conservative set valued fields, automatic differentiation, stochastic gradient methods and deep learning. Mathematical Programming, pages 1–33. Bolte, J. and Pauwels, E. (2020b). A mathematical model for automatic differentiation in machine learning. In Advances in Neural Information Processing Systems (NIPS). Bolte, J., Sabach, S., and Teboulle, M. (2014). Proximal alternating linearized minimization for nonconvex and nonsmooth problems. Mathematical Programming, 146(1-2):459–494. Borkar, V. S. (2009). Stochastic approximation: A dynamical systems viewpoint. Springer. Bottou, L. and Bousquet, O. (2008). The tradeoffs of large scale learning. In Advances in Neural Information Processing Systems (NIPS), pages 161–168. Bottou, L., Curtis, F. E., and Nocedal, J. (2018). Optimization methods for large-scale machine learning. SIAM Review, 60(2):223–311. Byrd, R. H., Chin, G. M., Neveitt, W., and Nocedal, J. (2011). On the use of stochastic Hessian information in optimization methods for machine learning. SIAM Journal on Optimization,
+21(3):977–995. Byrd, R. H., Hansen, S. L., Nocedal, J., and Singer, Y. (2016). A stochastic quasi-Newton method for large-scale optimization. SIAM Journal on Optimization, 26(2):1008–1031. Castera, C. (2019). INNA for deep learning. https://github.com/camcastera/ Inna-for-DeepLearning/. Castera, C., Bolte, J., Févotte, C., and Pauwels, E. (2019). An inertial Newton algorithm for deep learning. arXiv preprint:1905.12278v1. Chollet, F. (2015). Keras. https://github.com/fchollet/keras. Clarke, F. H. (1990). Optimization and nonsmooth analysis. SIAM. Coste, M. (2000). An introduction to o-minimal geometry. Istituti editoriali e poligrafici internazionali Pisa. Davis, D., Drusvyatskiy, D., Kakade, S., and Lee, J. D. (2020). Stochastic subgradient method converges on tame functions. Foundations of Computational mathematics, 20(1):119–154. van den Dries, L. (1998). Tame topology and o-minimal structures. Cambridge university press. Duchi, J., Hazan, E., and Singer, Y. (2011). Adaptive subgradient methods for online learning and stochastic optimization. Journal of Machine Learning Research, 12(7):2121–2159.
+26
+Duchi, J. C. and Ruan, F. (2018). Stochastic methods for composite and weakly convex optimization problems. SIAM Journal on Optimization, 28(4):3229–3259. Hunter, J. D. (2007). Matplotlib: A 2D graphics environment. Computing in science & engineering, 9(3):90–95. Kingma, D. P. and Ba, J. (2015). Adam: A method for stochastic optimization. In Proceedings of the International Conference on Learning Representations (ICLR). Krizhevsky, A. (2009). Learning multiple layers of features from tiny images. Technical report, Canadian Institute for Advanced Research. Kurdyka, K. (1998). On gradients of functions definable in o-minimal structures. In Annales de l’institut Fourier, volume 48, pages 769–783. Kushner, H. and Yin, G. G. (2003). Stochastic approximation and recursive algorithms and applications. Springer. LeCun, Y., Bottou, L., Bengio, Y., Haffner, P., et al. (1998). Gradient-based learning applied to document recognition. Proceedings of the IEEE, 86(11):2278–2324. Lin, M., Chen, Q., and Yan, S. (2014). Network in Network. In Proceedings of the International Conference on Learning Representations (ICLR). Ljung, L. (1977). Analysis of recursive stochastic algorithms. IEEE Transactions on Automatic Control, 22(4):551–575. Martens, J. (2010). Deep learning via Hessian-free optimization. In Proceedings of the International Conference on Machine Learning (ICML), pages 735–742. Moulines, E. and Bach, F. R. (2011). Non-asymptotic analysis of stochastic approximation algorithms for machine learning. In Advances in Neural Information Processing Systems
+(NIPS), pages 451–459. Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., Killeen, T., Lin, Z., Gimelshein, N., Antiga, L., et al. (2019). Pytorch: An imperative style, high-performance deep learning library. In Advances in Neural Information Processing Systems (NIPS), pages
+8026–8037. Polyak, B. T. (1964). Some methods of speeding up the convergence of iteration methods. USSR Computational Mathematics and Mathematical Physics, 4(5):1–17. Robbins, H. and Monro, S. (1951). A stochastic approximation method. The Annals of Mathematical Statistics, 22(1):400–407. Rossum, G. (1995). Python reference manual. CWI (Centre for Mathematics and Computer Science). Rumelhart, D. E. and Hinton, G. E. (1986). Learning representations by back-propagating errors. Nature, 323(9):533–536. Shiota, M. (2012). Geometry of subanalytic and semialgebraic sets, volume 150. Springer Science
+& Business Media.
+27
+Walt, S. v. d., Colbert, S. C., and Varoquaux, G. (2011). The NumPy array: a structure for efficient numerical computation. Computing in science & engineering, 13(2):22–30. Wilson, A. C., Roelofs, R., Stern, M., Srebro, N., and Recht, B. (2017). The marginal value of adaptive gradient methods in machine learning. In Advances in Neural Information Processing Systems (NIPS), pages 4148–4158. Xu, P., Roosta, F., and Mahoney, M. W. (2020). Second-order optimization for non-convex machine learning: an empirical study. In Proceedings of the SIAM International Conference on Data Mining (SDM20), pages 199–207. Society for Industrial and Applied Mathematics.
+28

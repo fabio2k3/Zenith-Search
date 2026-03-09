@@ -1,0 +1,415 @@
+9102 ceD
+62
+]GL.sc[
+3v62401.2181:viXra Noname manuscript No.
+(will be inserted by the editor) Stochastic Trust Region Inexact Newton Method for Large-scale Machine Learning Vinod Kumar Chauhan ∗ · Anuj Sharma · Kalpana Dahiya Received: date/Accepted: date Abstract Nowadays stochastic approximation methods are one of the major research direction to deal with the large-scale machine learning problems. From stochastic first order methods, now the focus is shiftingtostochasticsecondordermethodsdue totheirfasterconvergenceandavailabilityofcomputing resources. In this paper, we have proposed a novel Stochastic Trust RegiOn Inexact Newton method, calledasSTRON,tosolvelarge-scalelearningproblemswhichusesconjugategradient(CG)toinexactly solve trust region subproblem. The method uses progressive subsampling in the calculation of gradient and Hessian values to take the advantage of both, stochastic and full-batch regimes. We have extended STRON using existing variance reduction techniques to deal with the noisy gradients and using preconditioned conjugate gradient (PCG) as subproblem solver, and empirically proved that they do not work as expected, for the large-scale learning problems. Finally, our empirical results prove efficacy of the proposed method against existing methods with bench marked datasets. Keywords stochastic optimisation · subsampling · second order methods · inexact newton · large-scale learning
+1 Introduction Machine learning involves data intensive optimization problems which have large number of component functions corresponding to large amount of available data. Traditional/classical methods, like Newton method, fail to perform well on such large-scale learning problems (i.e., problems with large number of data points) due to large per-iteration complexity. So nowadays one of the major challenge in machine learning is to develop scalable and efficient algorithms to deal with these large-scale learning problems
+[40, 11, 12]. To solve the machine learning problems, gradientdescent (GD) [10] is the classical method of choice
+∗MostofthisworkwasdonewhenauthorwasdoinghisPhDatPanjabUniversityChandigarh,India.
+∗This is a pre-print of an article published in International Journal of Machine Learning and Cybernetics. The final authenticated versionisavailableonlineat:https://doi.org/10.1007/s13042-019-01055-9 VinodKumarChauhan DepartmentofEngineering UniversityofCambridge,UK E-mail:vk359@cam.ac.uk Homepage: http://www.eng.cam.ac.uk/profiles/vk359 AnujSharma ComputerScience&Applications PanjabUniversityChandigarh,INDIA E-mail:anujs@pu.ac.in Homepage: https://sites.google.com/view/anujsharma KalpanaDahiya UniversityInstituteofEngineeringandTechnology PanjabUniversityChandigarh,INDIA E-mail:kalpanas@pu.ac.in
+but it trains slowly while dealing with large-scale learning problems due to high per-iteration cost. Stochastic approximationbasedmethods [33] canbe quite effective in such situations but they converge slowly due to the noisy approximations of gradient. So a variety of stochastic variance reduction techniques came to existence, e.g.,[25, 17, 34, 2, 19]. But the majorlimitation ofthese methods is that they can converge up to linear rate only. Newton method is another classical method to solve optimization problems, which can give up to quadraticconvergencerate[7].Butagain(pure) Newtonmethod is notfeasible withlarge-scalelearning problems due to huge per-iteration computational complexity and need to store a huge Hessian matrix. So nowadaysone of the most significant open question in optimization for machine learning is: “Can we develop stochastic second order methods with quadratic convergence, like Newton method but has low per-iteration complexity, like stochastic approximation methods?”. After success in the stochastic first ordermethods,the researchis shifting its focus towardsthe stochasticsecondordermethods to leverage the faster convergence of second order methods and the available computing power. Inexact Newton (also called truncated Newton or Hessian free) methods and quasi-Newton methods areamongthe majorresearchdirectionsfordevelopingsecondordermethods [5].InexactNewtonmethodstrytosolvetheNewtonequationapproximatelywithoutcalculatingandstoringtheHessianmatrix. On the other hand, quasi-Newton methods try to approximate the Hessian inverse and avoid the need to store the Hessian matrix. Thus both the methods try to resolve the issues with Newton method for solving large-scalelearning problems. The stochastic variants of inexact Newton and quasi-Newton, further reduce the complexity of these methods by using subsampled gradient and Hessian calculations. In this paper,we haveproposeda novelstochastictrustregioninexactNewton(STRON)method to solve the large-scale learning problems, which introduces subsampling to gradient and Hessian calculations. It uses progressive subsampling to enjoy the benefits of both the regimes, stochastic approximationand full-batch learning. We further extend the method using existing variance reduction techniques to deal with noise produced by subsampling of gradient values, and by proposing PCG for solving the trust region subproblem.
+1.1 Optimization Problem We consider unconstrained convex optimization problem of expected risk, as given below: minR(w)=E[f(w;ξ)], (1) w where f(w;ξ) = f(w;x ,y ) = f(h(w;x ),y ) is a smooth composition of linear prediction model h i i i i and loss function f over randomly selected data point (x ,y ) from the unknown distribution P (x ,y ), i i i i parameterized by the model parameter w ∈ Rn. Since it is not feasible to solve (1) as P is unknown so the model is approximatedby taking a set N ={(x1,y1),...,(x l
+,y l
+)} of l data points from the unknown distribution P and then solving the empirical risk minimization problem, as given below: l
+1 minF(w)= f(w;x ,y ). (2) i i w l i=1 X For simplicity, we take f(w;x ,y ) = f (w). Finite sum optimization problems of type (2) exists across i i i different fields, like signal processing, statistics, operation research, data science and machine learning, e.g., logistic regressionand SVM in machine learning.
+1.2 Solution Techniques Simple iterative classical method to solve (2) is gradient descent (GD) [10], as given below: wk+1 =wk−α ∇F (w ), (3) k k where (k +1) is iteration number and α is called learning rate or step size. The complexity of this k iteration is O(nl) which is large for large-scale learning problems due to large number of data points.
+2
+Stochastic gradient descent (SGD) [33] is very effective to deal with such problems due to its low periteration complexity, as given below: wk+1 =wk−α ∇f (w ), (4) k ik k where i is randomly selecteddata point. But convergencecan’t be guaranteedin SGD because ofnoisy k gradient values. Another classical second order method to solve (2) is Newton method, as given below: wk+1 =wk−α ∇2F (w ) −1 ∇F (w ). (5) k k k The complexity of this iteration is O(n2l +n3) and it needs to store and invert the Hessian matrix
+∇2F (w ), which is computationally very expensive and needs large memory for large-scale learning k problems, respectively. That’s why first order methods and their stochastic variants have been studied very extensively, during the last decade, to solve the large-scale learning problems but not second order methods.Asstochasticfirstordermethodshavehittheirlimitsandduetogoodavailabilityofcomputing power,the mainfocus isshifting towardsstochasticsecondordermethods, andnowadaysoneimportant open question is to find stochastic second order methods with quadratic convergence rates. Therearetwomajorresearchdirectionsforsecondordermethods:quasi-Newtonmethodsandinexact Newton methods, both of which try to resolve the issues associated with the Newton method. QuasiNewton methods try to approximate the Hessian matrix during each iteration, as given below: wk+1 =wk−α B ∇F (w ), (6) k k k where B is an approximateof ∇2F (w ) −1 , e.g., Broyden-Fletcher-Goldfarb-Shanno(BFGS) algorithm k k is one such method [20]. On the other hand, inexact Newton methods try to solve the Newton system approximately, e.g., Newton-CG [38]. Both the methods try to resolve the issues related with Newton method but still their complexities are largefor large-scaleproblems.So a number ofstochastic variants of these methods have been proposed, e.g., [8, 9, 6, 3] which introduce subsampling to gradient and Hessian calculations.
+1.3 Contributions The contributions of the manuscript are listed below:
+– The manuscript highlights the recent shift of stochastic methods from first order to second order methods and raises an open question that we need stochastic second order methods with quadratic convergence rate to solve the large-scale machine learning problems.
+– WehaveproposedanovelsubsampledvariantoftrustregioninexactNewtonmethodforsolvinglargescale learning problems, which is called STRON and is the first stochastic variant of trust region inexact Newton methods. STRON uses progressive subsampling scheme for gradient and Hessian calculationsto enjoy the benefits of both stochastic and full batch regimes.STRON can convergeup to quadratic rate and answers the raised open question.
+– STRON has been extended using existing variance reduction techniques to deal with the noisy approximations of the gradient calculations. The extended method uses stochastic variance reduced gradient(SVRG)forvariancereductionwithstaticbatchingforgradientcalculationsandprogressive batchingfortheHessiancalculations.Theempiricalresultsprovethatthisdoesnotworkasexpected for large-scale learning.
+– WefurtherextendSTRONandusePCG,insteadofCGmethod,tosolvetheNewtonsysteminexactly. We have used weighted average of identity matrix and diagonal matrix as the preconditioner. But even this fails to work as expected for large-scalelearning.
+– Finally, our empirical experiments prove the efficacy of STRON against existing techniques with bench marked datasets.
+3
+2 Literature Review Stochastic approximation methods are very effective to deal with the large-scale learning problems due to their low per-iteration cost, e.g., SGD [33], but they lead to slow convergence rates due to the noisy approximation.Todealwiththenoiseissue,anumberoftechniqueshavebeenproposedandsomeofthe importanttechniques(asdiscussedin[16])are:(a)decreasinglearningrates[37],(b)usingmini-batching
+[13], (c) importance sampling [16], and (d) variance reduction [23]. The variance reduction methods can further be classified into three categories: primal methods [34, 15], dual methods [36] and primal-dual methods [39]. The variance reduction techniques are effective to deal with the large-scale learning problemsbecauseoflowper-iterationcomplexity,likeSGD, andhavefastlinearconvergence,likeGD.These techniques exploit the best of SGD and GD but for these stochastic variants of first order methods the convergenceislimitedtolinearrateonly,unlikethesecondordermethodswhichcangiveuptoquadratic rate. Secondorder methods utilize the curvature informationto guide the step directiontowardsthe solution and exhibit faster convergencethan the first order methods. But huge per-iteration cost due to the huge Hessianmatrix and its inversionmake the training of models slow for large-scaleproblems. So certaintechniqueshavebeendevelopedtodealwiththeissuesrelatedtoHessianmatrix,e.g.,quasi-Newton methods and inexact Newton methods are two major directions to deal with the huge computational cost of Newton method. Quasi-Newton methods approximate the Hessian matrix during each iteration, e.g., BFGS [20] and its limited memory variant, called L-BFGS [28], are examples of the quasi-Newton class which use gradient and parameter values from the previous iterations to approximate the Hessian inverse. L-BFGS uses only recent information from previous M-iterations. On the other hand, inexact Newton methods try to solve the Newton system approximately, e.g., Newton-CG [38]. Recently,severalstochasticvariantsofBFGSandL-BFGShavebeenproposedtodealwithlarge-scale problems.Schraudolphetal.[35]proposedstochasticvariantsofBFGSandL-BFGSfortheonlinesetting, known as oBFGS. Mokhtari and Ribeiro [30] extended oBFGS by adding regularization which enforces upper bound on the eigen values of the approximate Hessian, known as RES (Regularized Stochastic BFGS). Stochastic quasi-Newton (SQN) [9] is another stochastic variant of L-BFGS which collects curvatureinformationatregularintervals,insteadofateachiteration.Variance-reducedStochasticNewton
+(VITE) [29] extended RES and proposed to use variance reduction for the subsampled gradient values for solving smoothly strongly convex problems. Kolte et al. [24] provided another stochastic L-BFGS method with variance reduction using SVRG (referred as SVRG-LBFGS). Moritz et al. [31] proposed Stochastic L-BFGS (SLBFGS) using SVRG for variance reduction and using Hessian-vector product to approximatethe gradientdifferences forcalculatingthe Hessianapproximations,alsoreferredas SVRGSQN. SVRG-LBFGS and SVRG-SQN differ in how the curvature is approximated (i.e. how Hessian is approximated),formercollectsthecurvatureinformationonceduringeachepoch(outeriterations)using gradient differences but later collects the curvature information after regular intervals inside the inneriterations using Hessian-vector products. Berahas et al. [4] proposed multi-batch scheme into stochastic L-BFGSwhere batchsample changes with some overlapswith previous iteration.Bollapragadaet al.[6] proposed progressivebatching, stochastic line search and stable Newton updates for L-BFGS. Bollapragada et al. [5] studies the conditions on the subsample sizes to get the different convergence rates. Stochastic inexact Newton methods are also exploredextensively. Byrd et al. [8] proposed stochastic variants of Newton-CG along with L-BFGS method. Bollapragada et al. [5] studies subsampled Newton methods and find conditions on subsample sizes and forcing term (constant used with the residual condition), for linear convergence of Newton-CG method. Bellavia et al. [3] studies the effect of forcing term and line search to find linear and super-linear convergence of Newton-CG method. Newton-SGI
+(stochastic gradient iteration) is another way of solving the linear system approximately and is studied in Agarwal et al. [1]. TrustRegionNewton(TRON)methodisone ofthe mostefficientsolverforsolvinglarge-scalelinear classificationproblems[27].ThisistrustregioninexactNewtonmethodwhichdoesnotuseanysubsampling and is present in LIBLINEAR library [18]. Hsia et al. [21] extends TRON by improving the trust region radius value. Hsia et al. [22], further extends TRON and uses preconditioned conjugate gradient
+(PCG) which uses weighted averageof identity matrix anddiagonalmatrix as a preconditioner,to solve the trust regionsubproblem.Since subsampling is an effective wayto deal with the large-scaleproblems so in this paper, we have proposed a stochastic variant of trust region inexact Newton method, which have not been studied so far to the best of our knowledge.
+4
+3 Trust Region Inexact Newton Method Inexact Newton methods, also called as Truncated Newton or Hessian free methods, solve the Newton equation (linear system) approximately. CG method is a commonly used technique to solve the trust regionsubproblemapproximately.Inthissection,wediscussinexactNewtonmethodanditstrustregion variation.
+3.1 Inexact Newton Method The quadratic model m (p) obtained using Taylor’s theorem is given below: k
+1 F(w +p)−F(w )≈m (p)≡∇F (w ) T p+ pT∇2F (w )p. (7) k k k k k
+2 Taking derivative of m (p) w.r.t. p and equating to zero, we get, k
+∇2F (w )p=−∇F (w ), (8) k k which is Newton system and its solution gives Newton method, as given below: wk+1 =wk+p =wk−∇2F(w ) −1 ∇F (w ). (9) k k k The computational complexity of this iteration is O(n2l+n3) which is very expensive. This iteration involves the calculation and inversion of a large Hessian matrix which is not only very expensive to calculate but expensive to store also. CG method approximately solves the subproblem (8) without forming the Hessian matrix, which solves the issues related to large computational complexity and need to store the large Hessian matrix. Each iteration runs for a given number of CG iterations or until the residual condition is satisfied, as given below:
+′ kr k≤η k∇F(w )k, (10) k k k where r =∇2F(w )p+∇F (w ) and η ′ is a small positive value, known as forcing term [32]. k k k k
+3.2 Trust Region Inexact Newton Method Trust region is a region in which the approximate quadratic model of the given function gives correct approximation for that function. In trust region methods, we don’t need to calculate the step size (also calledlearningrate)directlybut they indirectlyadjustthe stepsizeasper the trustregionradius.Trust region method solves the following subproblem to get the step direction p : k min m (p) s.t. kpk≤△ , (11) k k p where m (p) is a quadratic model of F (w +p)−F (w ), as given in (7) and △ is the trust region k k k k radius. This subproblem can be solved similar to Newton-CG, except that now we need to take care of the extra constraint of p. TRON (trust region Newton method) [27] is one of the most famous and widelyusedsuchmethod,whichisusedinLIBLINEAR[18]tosolvel2-regularizedlogisticregressionand l2-SVMproblems.Hsia etal.[21]extends TRONby proposingbetter trustregionradius.Hsiaetal.[22] furtherextendsTRONusingPCGsubproblemsolverwhichusesaverageofidentitymatrixanddiagonal matrix as preconditioner, to solve the trust region subproblem and shows that PCG could be effective to solve ill-conditioned problems. Then the ratio of actual and predicted reductions of the model is calculated, as given below: F(w +p )−F(w ) k k k
+ρ = . (12) k m (p ) k k The parameters are updated for the (k+1)th iteration as given below: w k
++p k
+, ifρ k
+>η0, w k+1 = (13)
+(w k
+, ifρ k
+≤η0,
+5
+where η0 >0 is a given constant. Then the trust region radius △ k is updated as per the ratio of actual reduction and predicted reduction, and a framework for updating △ as given in [26], is given below: k
+[γ1min{kp k k,△ k
+},γ2△ k
+], ifρ k
+≤η1,
+△ k+1 ∈  [γ1△ k ,γ3△ k ], ifρ k ∈(η1,η2), (14)
+[△ k
+,γ3△ k
+], ifρ k
+≥η2, where 0 < η1 < η2 ≤ 1 and 0 < γ1 < γ2 < 1 < γ3. If ρ k
+≤ η1 then the Newton step is considered unsuccessful and the trust region radius is shrunk. On the other hand if ρ k
+≥ η2 then the step is successful and the trust region radius is enlarged. We have implemented this framework as given in the LIBLINEARlibrary[18]andchosethe followingpre-definedvalues forthe aboveconstants:η0 =1e−4,
+η1 =0.25, η2 =0.75, γ1 =0.25, γ2 =0.5 and γ3 =4.
+4 STRON STRON exploits the best of both, stochastic and batch regimes, using progressive subsampling to solve thelarge-scalelearningproblems.Asstochasticgradientdescent(SGD)trainsfasterforlarge-scalelearningproblemsthangradientdescent(GD)duetolowcomputationsperiterationbutGDismoreaccurate than SGD due to batch calculations, similarly STRON takes benefit of low computation during initial iterations and as it reaches the solution region it uses batch calculations to find accurate solution like TRON. The major challenge with STRON is to decide when to switch from stochastic to full-batch regime, i.e., to tune the subsampling rate. STRON introduces stochasticity into the trust region inexact Newton method and calculates subsampled function, gradient and Hessian values to solve the trust region subproblem, as given below:
+1 min m (p)=∇F (w ) T p+ pT∇2F (w )p, s.t. kpk≤△ , (15) p k Xk k
+2 Sk k k where ∇2F (w ) and ∇F (w ) are subsampled Hessian and gradient values over the subsamples S Sk k Xk k k and X , respectively, as defined below: k
+1
+∇2F (w )= ∇2f (w ), Sk k
+|S | i k k i X
+∈Sk
+1
+∇F (w )= ∇f (w ), Xk k
+|X | i k (16) k i X
+∈Xk
+1 F (w )= f (w ), Xk k
+|X | i k k i X
+∈Xk wheresubsamplesareincreasing,i.e.,|X k
+|<|X k+1|,|S k
+|<|S k+1|andF Xk issubsampledfunctionvalue used for calculating ρ . STRON solves (15) approximately for given number of CG iterations or until k the following residual condition is satisfied:
+′ kr k≤η k∇F (w )k, (17) k k Xk k where r =∇2F (w )p+∇F (w ). k Sk k Xk k STRON is presented by Algorithm 1. It randomly selects subsamples S and X for the kth iteration k k
+(outeriterations).X andS areusedforcalculatingthegradientandHessianvalues,respectively.Then k k itsolvesthetrustregionsubproblemusingCGsolver(inneriterations)whichusessubsampledHessianin calculatingHessian-vectorproducts.CGstopswhenresidualcondition,sameas(17),satisfies,itreaches maximum #CG iterations or it reaches the trust region boundary. The ratio of reduction in actual and predictedreductioniscalculatedsimilarto(12)butusingsubsampledfunction,andisusedforupdating the parameters as given in (13). Then trust region radius △ is updated as per ρ as given in (14) and k k these steps are repeated for a given number of iterations or until convergence. STRON uses progressivesubsampling, i.e., dynamic subsampling to calculate function, gradient and Hessian values, and solves the Newton system approximately. It is effective to deal with large-scale problemssinceitusessubsamplingandsolvesthesubproblemapproximately,withoutformingtheHessian matrix but using only Hessian-vector products. So it handles the complexity issues related with the Newton method.
+6
+Algorithm 1 STRON
+1: Input:w0
+2: Result:w=wk
+3: fork=0,1,...do
+4: RandomlyselectsubsamplesSk andXk
+5: Calculatesubsampledgradient∇FXk (wk)
+6: SolvethetrustregionsubproblemusingAlgorithm2,togetthestepdirectionpk
+7: Calculatetheratioρk =
+(cid:0) FXk (wk+pk)−FXk (wk)
+(cid:1)
+/mk(pk)
+8: Updatetheparametersusing(13)
+9: Updatethetrustregionradius△k using(14)
+10: endfor Algorithm 2 CG Subproblem Solver
+′
+1: Inputs:△k>0,η k
+∈(0,1)
+2: Result:pk=pj
+3: Initializep0=0,r0=d0=−∇FXk (wk)
+4: forj=1,2,...do
+′
+5: if krj−1k<η k k∇FXk (wk)kthen
+6: returnpk=pj−1
+7: endif
+8: CalculatesubsampledHessian-vectorproductvj =∇2FSk (wk)dj−1
+9: αj =krj−1k2/
+(cid:16) dT j−1vj(cid:17)
+10: pj =pj−1+αjdj−1
+11: if kpjk≥△k then
+12: Calculateτj suchthatkpj−1+τjdj−1k=△k
+13: returnpk=pj−1+τjdj−1
+14: endif
+15: rj =rj−1−αjvj,
+16: βj =krjk2/krj−1k2,dj =rj+βjdj−1
+17: endfor
+4.1 Complexity The complexity of trust regioninexact Newton (TRON) method depends on function, gradient and CG subproblemsolver.ThisisdominatedbyCGsubproblemsolverandisgivenbyO(nl)×#CG iterations, and for sparse data, O(#nnz)×
+#CG iterations,where#nnzisnumberofnon-zerosvaluesinthedataset.ForsubsampledtrustregioninexactNewton(STRON)method,thecomplexityper-iterationisgivenbyO(n|S |)×#CG iterations, and for sparse data, O(#nnz )× k Sk
+#CG iterations,where#nnz isnumberofnon-zerosvaluesinthesubsampleS .Since#CGiterations Sk k taken by TRON and STRON do not differ much so the per-iteration complexity of STRON is smaller than TRON in the initial iterations and later becomes equal to TRON due to progressive subsampling, i.e., when |S |=N. k
+4.2 Analysis STRON method uses progressive subsampling with the assumption that eventually mini-batch size becomes equal to the whole dataset, i.e., for some value of k ≥k¯ >0, STRON becomes TRON. So we can follow the theoretical results given in TRON, which itself refers the results from [26]. For k ≥k¯, we get
+′ ′ different convergence depending upon the value of η : If η < 1 then STRON converges Q-linearly, if k k
+′ ′
+η k
+→0 as k →∞ then STRON has Q-superlinear convergence and when η k
+≤ κ0k∇F(w k
+)k for κ0 >0 then STRON convergesat quadratic rate.
+5 Experimental Results Inthis section,we discussexperimentalsettings andresults.The experiments havebeenconductedwith thebenchmarkedbinarydatasetsasgivenintheTable1,whichareavailablefordownloadfromLibSVM website1. We use following methods in experimentation:
+1 https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/
+7
+Table 1: Datasets used in experimentation Dataset #features #datapoints gisette 5000 6,000 rcv1.binary 47,236 20,242 webspam(unigram) 254 350,000 covtype.binary 54 581,012 ijcnn1 22 49,990 news20.binary 1,355,191 19,996 real-sim 20,958 72,309 Adult 123 32,561 mushroom 112 8124 TRON [22]: This is a trust region inexact Newton method without any subsampling. It uses preconditioned CG method to solve the trust region subproblem and it is present in the current version of LIBLINEAR library [18]. STRON: This is the proposed stochastic trust region inexact Newton method with progressive subsampling technique for gradient and Hessian calculations. It uses CG method to solve the trust region subproblem. STRON-PCG: This is an extension of STRON using PCG for solving the trust region subproblem, as discussed in the Subsection A.1. STRON-SVRG:ThisisanotherextensionofSTRONusingvariancereductionforsubsampledgradient calculations, as discussed in Subsection A.2. Newton-CG [8]: This is stochastic inexact Newton method which uses CG method to solve the subproblem. It uses progressive subsampling similar to STRON. SVRG-SQN [31]: This is stochastic L-BFGSmethod with variance reduction for gradientcalculations. SVRG-LBFGS[24]:ThisisanotherstochasticL-BFGSmethodwithvariancereduction.Itdiffersfrom SVRG-SQN method in approachby which Hessian information is sampled.
+5.1 Experimental Setup The datasetshavebeendividedinto 80%and20%,fortrainingandtesting datasets,respectivelyto plot the convergence, and 5-fold cross-validation has been used to present results in Table 2. We have used
+λ = 1/l for all methods because generally it gives good results and at the same time help to reduce number of tunable hyper-parameters. #CG iterations has been set to a sufficiently large value of 25, as all the inexact Newton methods use 5-10 iterations and hardly go beyond 20 iterations. Progressive batching schemeuses initial batchsize of1%for alldatasetsexceptijcnn which uses10%ofdatasetand the subsample size is increased linearly for all datasets, except covtype where exponential rate is used. Moreover we set the rate such that subsample size equals dataset size in 5 epochs because, generally second order methods reach the solution region in 4-5 epochs and converge in 8-10 epochs. For the sake of simplicity and avoid extra sampling, we take same subsample for Hessian and gradient calculations, i.e, S =X . Quasi-Newtonmethods (SVRG-SQN and SVRG-LBFGS) use mini-batch size of 10%with k k stochasticbacktrackinglinesearchtofindthestepsizeandsamesizemini-batchesaretakenforgradient and Hessian subsampling. Memory of M = 5 is used in quasi-Newton methods with L = 5 as update frequency of Hessian inverse approximation for SVRG-SQN method. All the algorithms use similar exit criterion of decrease in gradient value where we calculate gradient (kg0k) at w0 and run the algorithms until kg k k ≤ ǫkg0k, where kg k k is gradient value at kth-iteration and ǫ is the given tolerance level. Moreover all the methods are implemented in C++2 with MATLAB interface and experiments have been executed on MacBook Air (8 GB 1600 MHz DDR3, 1.6 GHz Intel Core i5 and 256GB SSD).
+5.2 Comparative Study Theexperimentshavebeenperformedwithstronglyconvexandsmoothl2-regularizedlogisticregression problem as given below:
+2 experimentalresultscanbereproducedusingthelibraryLIBS2ML[14].
+8
+l
+1 λ minF(w)= log 1+exp −y wTx + kwk2. (18) i i w l 2 i=1 X (cid:0) (cid:0) (cid:1)(cid:1) Theresultshavebeenplottedasoptimality(F(w)−F(w∗))versustrainingtime(inseconds)andaccuracy versus training time for high ǫ(=10−10)-accuracy solutions, as given in the Figs. 1, 2 and 3. As it is clear from the results, STRON converges faster than all other methods and shows improvement against TRON on accuracy vs. time plots. Moreover, quasi-Newton methods converges slower than inexact Newtonmethods asalreadyestablishedinthe literature[27]. As per the intuitions,STRONtakesinitial advantageoverTRONdue to subsamplingandasit reachesthe solutionregionthe progressivebatching scheme reaches the full batching scheme and converges with same rate as TRON. That’s why, in most of the figures, we can observe STRON and TRON converging in parallel lines. Moreover, we observe a horizontalline for accuracy vs. time plot with covtype dataset because all methods give 100%accuracy. Generally, the models are trained for low ǫ(=10−02)-accuracy solutions. So we present the results for
+100
+10-5
+10-10
+10-15
+10-20 0 0.1 0.2 0.3 0.4 0.5 0.6 Time (seconds) pag ytilamitpO
+0.95
+0.9
+0.85
+0.8
+0.75 SVRG_LBFGS 0.7 STRON S N V ew R t G o _ n S C Q G N 0.65 TRON
+0.6
+0.55
+0.5
+0 0.1 0.2 0.3 0.4 0.5 Time (seconds) ycaruccA tseT SVRG_LBFGS STRON SVRG_SQN NewtonCG TRON
+100
+10-5
+10-10
+10-15
+0 0.5 1 1.5 Time (seconds) pag ytilamitpO
+0.95
+0.9
+0.85
+0.8 SVRG_LBFGS 0.75 STRON SVRG_SQN 0.7 NewtonCG TRON 0.65
+0.6
+0.55
+0.5
+0 0.5 1 1.5 Time (seconds) ycaruccA tseT SVRG_LBFGS STRON SVRG_SQN NewtonCG TRON
+100
+10-5
+10-10
+10-15
+0 2 4 6 8 10 12 Time (seconds) pag ytilamitpO
+0.9
+0.85 SVRG_LBFGS STRON 0.8 SVRG_SQN NewtonCG 0.75 TRON
+0.7
+0.65
+0.6
+0.55
+0 2 4 6 8 10 12 Time (seconds) ycaruccA tseT SVRG_LBFGS STRON SVRG_SQN NewtonCG TRON Fig. 1: First column presents optimality versus training time (in seconds) and second column presents accuracy versus training time, on mushroom (first row), rcv1 (second row) and news20 (third row) datasets.
+9
+100
+10-5
+10-10
+10-15
+0 0.2 0.4 0.6 0.8 1 1.2 1.4 1.6 1.8 2 Time (seconds) pag ytilamitpO SVRG_LBFGS STRON 0.84 SVRG_SQN NewtonCG 0.83 TRON
+0.82
+0.81
+0.8
+0.79
+0.78
+0.77
+0 0.2 0.4 0.6 0.8 1 1.2 1.4 1.6 1.8 2 Time (seconds) ycaruccA tseT SVRG_LBFGS STRON SVRG_SQN NewtonCG TRON
+105
+100
+10-5
+10-10
+10-15
+10-20
+0 0.5 1 1.5 2 2.5 3 3.5 4 4.5 Time (seconds) pag ytilamitpO SVRG_LBFGS STRON SVRG_SQN NewtonCG TRON
+101
+100
+10-1
+0 1 2 3 4 5 Time (seconds) ycaruccA tseT SVRG_LBFGS STRON SVRG_SQN NewtonCG TRON
+100
+10-5
+10-10
+10-15
+0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 Time (seconds) pag ytilamitpO
+0.924
+0.922
+0.92
+0.918
+0.916 SVRG_LBFGS STRON 0.914 S N V ew R t G o _ n S C Q G N 0.912 TRON 0.91
+0.908
+0.906
+0.904
+0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 Time (seconds) ycaruccA tseT SVRG_LBFGS STRON SVRG_SQN NewtonCG TRON Fig. 2: First column presents optimality versus training time (in seconds) and second column presents accuracy versus training time, on Adult (first row), covtype (second row) and ijcnn1 (third row). suchacaseusingTable2,whichreportsresultsusing5-foldcrossvalidation.Asitisclearfromthetable, STRON either outperforms other solvers or shows results pretty close to the best method.
+5.3 Results with SVM We extend STRON to solve l2-SVM problem which is a non smooth problem, as given below: l
+1 λ minF(w)= max(0,1−y wTx )2+ kwk2. (19) i i w l 2 i=1 X The results are reported in the Fig. 4 with news20 and real-sim datasets. As it is clear from the figure, STRON shows results similar to logistic regressionproblem and outperforms all other methods.
+10
+100
+10-5
+10-10
+10-15
+0 1 2 3 4 Time (seconds) pag ytilamitpO
+0.95
+0.9 SVRG_LBFGS 0.85 STRON SVRG_SQN NewtonCG
+0.8 TRON
+0.75
+0.7
+0 1 2 3 4 Time (seconds) ycaruccA tseT SVRG_LBFGS STRON SVRG_SQN NewtonCG TRON Fig. 3: First column presents optimality versus training time (in seconds) and second column presents accuracy versus training time, on real-sim dataset. Table 2: Comparison of Training Time (seconds) for low accuracy (ǫ=0.01) solution Datasets↓ Methods→ SVRG LBFGS STRON SVRG SQN Newton CG TRON Time 0.8440±0.1770 0.0620±0.0045 0.4140±0.0397 0.9740±0.1907 0.7294±0.0162 covtype Accuracy 1.00±0.0 1.00±0.0 1.00±0.0 1.00±0.0 1.00±0.0 Time 1.5920±0.5867 0.9340±0.1258 2.3480±0.5909 0.68±0.01 0.88±0.10 real-sim Accuracy 0.9670±0.0055 0.9697±0.0017 0.9670±0.0029 0.9688±0.0022 0.9698±0.0015 Time 2.1780±0.1813 0.5700±0.0200 3.2840±0.0270 0.5860±0.0167 0.6589±0.0866 rcv1 Accuracy 0.9641±0.0023 0.9640±0.0025 0.9637±0.0024 0.9640±0.0024 0.9639±0.0027 Time 42.8960±2.5993 6.9620±1.3534 84.0520±2.2915 6.764±0.0074 7.2470±0.3567 news20 Accuracy 0.9333±0.0079 0.9337±0.0076 0.9339±0.0072 0.9338±0.0074 0.9338±0.0077 Time 0.1540±0.01340 0.0820±0.0268 0.1820±0.01920 0.072±0.0045 0.1316±0.0169 mushroom Accuracy 0.9995±0.0007 0.9992±0.0005 0.9986±0.0026 0.9996±0.0005 0.9995±0.0005 Time 0.3460±0.1390 0.2560±0.03780 0.3600±0.1158 0.3120±0.0795 0.2564±0.0185 ijcnn1 Accuracy 0.9235±0.0022 0.9232±0.0021 0.9237±0.0018 0.9238±0.0025 0.9233±0.0185 Time 0.3620±0.0981 0.2000±0.0187 0.3100±0.0644 0.2380±0.0084 0.2139±0.0046 Adult Accuracy 0.8479±0.0028 0.8470±0.0028 0.8469±0.0031 0.8473±0.0030 0.8477±0.0028 Time 9.5620±0.9891 8.1800±0.4260 10.7020±1.1314 41.6480±36.1190 10.4277±0.1709 gisette Accuracy 0.9725±0.0036 0.9730±0.0045 0.9690±0.0026 0.9701±0.0057 0.9755±0.0028 Time 6.0480±2.2814 6.3720±0.9942 7.6080±2.1462 3.272±0.2141 9.0548±1.2572 webspam Accuracy 0.9139±0.0033 0.9214±0.0019 0.9158±0.0036 0.9219±0.0017 0.9227±0.0009
+6 Conclusion We proposed a novel stochastic trust region inexact Newton method, called as STRON, to solve the large-scalelearningproblems.Theproposedmethodusedprogressivebatchingschemetodealwithnoisy approximations of gradient and Hessian, and enjoyed the benefits of both stochastic and full batch regimes. STRON has been extended to use preconditioned CG as trust region subproblem solver and to use variance reduction for noisy gradient calculations. Our empirical results proved the efficacy of STRON against the state-of-art techniques with bench marked datasets. Acknowledgements First author is thankful to Ministry of Human Resource Development, Government of INDIA, to providefellowship(UniversityGrantsCommission-SeniorResearchFellowship)topursuehisPhD.Wearealsothankful totheanonymous reviewersfortheirconstructivecomments toimprovethequalityofourmanuscript. Conflict of interest The authors declare that they have no conflict of interest.
+11
+100
+10-5
+10-10
+10-15
+0 5 10 15 20 25 30 Time (seconds) pag ytilamitpO
+0.95
+0.9 SVRG_LBFGS 0.85 STRON 0.8 SVRG_SQN NewtonCG 0.75 TRON
+0.7
+0.65
+0.6
+0.55
+0 5 10 15 20 25 30 Time (seconds) ycaruccA tseT SVRG_LBFGS STRON SVRG_SQN NewtonCG TRON
+100
+10-5
+10-10
+10-15
+0 0.5 1 1.5 2 2.5 3 3.5 4 4.5 5 Time (seconds) pag ytilamitpO SVRG_LBFGS STRON 0.95 SVRG_SQN NewtonCG TRON 0.9
+0.85
+0.8
+0.75
+0.7
+0 0.5 1 1.5 2 2.5 3 3.5 4 4.5 5 Time (seconds) ycaruccA tseT SVRG_LBFGS STRON SVRG_SQN NewtonCG TRON Fig. 4: Experiments with l2-SVM on news20 (first row) and real-sim (second row) datasets. A Extensions Inthissection,wediscussextensionsoftheproposedmethodwithPCGforsolvingthetrustregionsubproblem,andwith variancereductiontechnique. A.1 PCG Subproblem Solver Number of iterations required by CG method to solve the subproblem depend on the condition number of the Hessian matrix. So for ill-conditioned problems CG method converges slowly. To avoid such situations, generally a non-singular matrixM,calledpreconditioner,isusedasfollow.Forthelinearsystem∇2F(w)p=−∇F(w),wesolvefollowingsystem:
+−1 2 −1 M ∇ F(w)p=−M ∇F(w). (20) Generally,M−1=LLT istakentoensurethesymmetryandpositivedefinitenessofM−1∇2F(w).PCGcanbeusefulfor solvingtheill-conditionedproblemsbutitinvolvesextracomputationaloverhead.Wefollow[22]tousePCGasaweighted averageofidentitymatrixanddiagonalmatrixofHessian,asgivenbelow: M =α×diag(H)+(1−α)×I, (21) where H is a Hessian matrix and 0 ≤ α ≤ 1. For α = 0, there is no preconditioning and for α = 1 it is a diagonal preconditioner. In the experiments, we have taken α = 0.01 for TRON and STRON-PCG [22]. To apply PCG to trust regionsubproblem,wecanuseAlgorithm2withoutanymodifications,afterchangingthetrustregionsubproblem(11),as givenbelow[38]: m pˆ in
+(cid:0) L −1 ∇FXk (wk)
+(cid:1) T pˆ+ 1
+2 pˆT
+(cid:16) L −1 ∇ 2 FSk (wk)L −T
+(cid:17) pˆ, s.t. kpˆk≤△k, (22) where pˆ=LTp. STRON using PCG as a trust region subproblem solver is denoted by STRON-PCGand the results are reported in Fig. 5. It compares TRON, STRON and STRON-PCG on news20 and rcv1 datasets. As it is clear from the figure,bothSTRONandSTRON-PCGoutperformTRON. PCG trust region subproblem solver involves extra cost for calculating the preconditioner, and for TRON the overhead duetopreconditionerisgivenby O(n)×#CGiterations+O(nl). (23) AndforSTRON-PCG,preconditionerinvolvesextracostasgivenbelow: O(n)×#CGiterations+O(n|Sk|). (24)
+12
+100
+10-5
+10-10
+10-15
+10-20
+0 1 2 3 4 5 Time (seconds) pag ytilamitpO
+101 STRON-SVRG STRON TRON
+100
+10-1
+0 1 2 3 4 5 Time (seconds) ycaruccA tseT STRON-SVRG STRON TRON
+100
+10-5
+10-10
+10-15
+0 0.2 0.4 0.6 0.8 1 Time (seconds) pag ytilamitpO STRON-SVRG STRON 0.84 TRON
+0.83
+0.82
+0.81
+0.8
+0.79
+0.78
+0.77
+0 0.2 0.4 0.6 0.8 1 Time (seconds) ycaruccA tseT STRON-SVRG STRON TRON Fig.5:ComparativestudyofSTRON PCG,STRONandTRONoncovtype(firstrow)andAdult(second row) datasets. A.2 Stochastic Variance Reduced Trust Region Inexact Newton Method Recently, researchers have proposed stochastic variants of second order methods with variance reduction. So it is an interestingquestiontoknow thathow willvariancereduction workwithstochastic trustregioninexact Newtonmethods, asthisisnotstudiedyet. Ourempiricalresultsprovethatvariancereductiondoes notworkinthiscase, evenafterusing progressivesubsamplingforHessiancalculation. Toimprovethequalityofsearchdirection,wehaveusedSVRGasvariancereductiontechniqueforgradientcalculations, asgivenbelow: gk=∇FSk (wk)−∇FSk (w¯)+∇F(w¯), (25) wherew¯isparametervalueatthestartofouteriteration.STRON-SVRGusesvariancereductionforgradientcalculations and progressivebatching for Hessiancalculations, as given inthe Algorithm 3. The experimental results arepresented in Fig.6withnews20andrcv1datasets.Asitisclearfromthefigures,STRON-SVRGlagsbehindSTRONandTRON,i.e., variancereductioninSTRON-SVRGisnotsufficienttobeattheprogressivebatchingingradientcalculationsofSTRON. This is because both, STRON-SVRG and STRON, are stochastic/subsampled variants of TRON and to compensate for thenoisygradientcalculations,formeruseswell-knownvariancereductionstrategybutlaterusesprogressivesubsampling strategy. STRONisabletobeatTRONbutSTRON-SVRGfailsandlagsbehindboth. B More Results Inthisappendix,weprovidemoreresultsandstudytheeffectofregularizationcoefficientonthemethods.
+13
+Algorithm 3 STRON with Variance Reduction
+1: Inputs:w0,m
+2: Result:w=wk
+3: fori=0,1,2,...do
+4: Calculate∇F(wi)andsetw¯=wi
+5: fork=0,1,...,(m−1)do
+6: RandomlyselectsubsamplesSk andXk
+7: Calculatesubsampledgradient∇FXk (wk)
+8: Calculatevariancereducedgradientusing(25)
+9: Solve the trust region subproblem using Algorithm 2 with variance reduced gradient, instead of subsampled gradient,togetthestepdirectionpk
+10: Calculatetheratioρk =
+(cid:0) FXk (wk+pk)−FXk (wk)
+(cid:1)
+/mk(pk)
+11: Updatetheparametersusing(13)
+12: Updatethetrustregion△k using(14)
+13: endfor
+14: endfor
+100
+10-5
+10-10
+10-15
+0 2 4 6 8 10 12 14 16 18 20 Time (seconds) pag ytilamitpO STRON-SVRG 0.9 STRON TRON 0.85
+0.8
+0.75
+0.7
+0.65
+0.6
+0.55
+0 2 4 6 8 10 12 14 16 18 20 Time (seconds) ycaruccA tseT STRON-SVRG STRON TRON
+100
+10-5
+10-10
+10-15
+0 0.2 0.4 0.6 0.8 1 1.2 1.4 1.6 1.8 2 Time (seconds) pag ytilamitpO
+0.95 STRON-SVRG STRON 0.9 TRON
+0.85
+0.8
+0.75
+0.7
+0.65
+0.6
+0.55
+0.5
+0 0.2 0.4 0.6 0.8 1 1.2 1.4 1.6 1.8 2 Time (seconds) ycaruccA tseT STRON-SVRG STRON TRON Fig.6:ComparativestudyofSTRON-SVRG,STRONandTRONonnews20(firstrow)andrcv1(second row) datasets. B.1 More Experiments Fig.7presentsmoreresultsongisetteandwebspamdatasetsonl2-SVMandl2-regularizedlogisticregression,respectively. WeobserveresultssimilartoFigs.1–4,whichshowthatSTRONoutperformsallothertechniques. B.2 Effect of Regularization Coefficient Here we study the effect of the value of regularization coefficient (λ) on the convergence and accuracy of STRON and TRONmethods.Fig.8presentstheresultswithaseriesofvaluesforλ = {1/l,1e−1,1e−3,1e−5,1e−7}usingnews20 datasetwithSVM.Fromthefigure,itisclearthatboththemethodsareaffectedbythechoiceofvalueλ.Forlargervalues ofλ = {1e−1,1e−3},boththemethodsconvergetothelessaccuratesolution,asdepictedintermsofoptimalitygapand accuracyplots.Ontheotherhand,forvaluesofλ<1e−3,theredonotseembemuchdifferenceintheaccuracyofboth
+14
+102
+100
+10-2
+10-4
+10-6
+10-8
+0 5 10 15 20 25 Time (seconds) pag ytilamitpO
+0.95
+0.9 SVRG_LBFGS 0.85 STRON SVRG_SQN 0.8 NewtonCG TRON 0.75
+0.7
+0.65
+0.6
+0.55
+0.5
+0 1 2 3 4 5 6 7 8 9 10 Time (seconds) ycaruccA tseT SVRG_LBFGS STRON SVRG_SQN NewtonCG TRON
+100
+10-5
+10-10
+10-15
+0 5 10 15 20 25 30 35 40 45 50 Time (seconds) pag ytilamitpO SVRG_LBFGS 0.9 STRON SVRG_SQN 0.8 NewtonCG TRON
+0.7
+0.6
+0.5
+0.4
+0 1 2 3 4 5 6 7 8 9 10 Time (seconds) ycaruccA tseT SVRG_LBFGS STRON SVRG_SQN NewtonCG TRON Fig.7:First rowpresentsresults with gisette onSVM andsecondrowpresents resultswith webspamon logistic regression. themethods.But,intermsofoptimalitygap,itisclearthat smallerthevalueofλ,better isthesolution,although there seemtobenodifferenceonthecorrespondingaccuracyplot.Moreover,forallthevaluesofλ,STRONclearlyoutperforms TRONmethod. Generally,machinelearningproblemsinvolvetuningalotofhyper-parameters whicharequitedifficulttotune.Soto reducenumberofparameterstotune,wesetλ =1/l,whichworkswellinpractice,asitsetsthevaluerelativetothesize ofthedatasetandgivesgoodresults,asisclearfromthefigure.
+100
+10-1
+10-2
+10-3
+10-4
+10-5
+10-6
+0 5 10 15 20 25 Time (seconds) pag ytilamitpO
+0.95
+0.9
+0.85
+0.8
+0.75 TRON 1/l 0.7 STRON 1/l T S R TR O O N N 1 e 1 - e 1 -1 0.65 TRON 1e-3 STRON 1e-3 0.6 TRON 1e-5 S TR TR O O N N 1 e 1 - e 7 -5 0.55 STRON 1e-7
+0 1 2 3 4 5 6 7 8 9 10 Time (seconds) ycaruccA tseT TRON 1/l STRON 1/l TRON 1e-1 STRON 1e-1 TRON 1e-3 STRON 1e-3 TRON 1e-5 STRON 1e-5 TRON 1e-7 STRON 1e-7 Fig. 8: Effect of regularizationcoefficient on STRON and TRON methods.
+15
+References
+1. AgarwalN,BullinsB,HazanE(2017)Second-orderstochasticoptimizationformachinelearninginlineartime.Journal ofMachineLearningResearch18(116):1–40
+2. Allen-Zhu Z (2017) Katyusha: The First Direct Acceleration of Stochastic Gradient Methods. Journal of Machine LearningResearch(toappear)Fullversionavailableathttp://arxiv.org/abs/1603.05953
+3. Bellavia S, Krejic N, Jerinkic NK (2018) Subsampled inexact newton methods for minimizing large sums of convex functions.OptimizationOnlineURLhttp://www.optimization-online.org/DB_HTML/2018/01/6432.html
+4. Berahas AS, Nocedal J, Takac M (2016) A multi-batch l-bfgs method for machine learning. In: Advances in Neural InformationProcessingSystems29,pp1055–1063
+5. BollapragadaR,ByrdR,Nocedal J(2016) Exactand Inexact SubsampledNewton Methods forOptimization. arXiv URLhttps://arxiv.org/abs/1609.08502
+6. BollapragadaR,NocedalJ,MudigereD,ShiHJ,TangPTP(2018)Aprogressivebatchingl-BFGSmethodformachine learning.In: Proceedings ofthe 35th International Conference onMachineLearning,PMLR,Proceedings ofMachine LearningResearch,vol80,pp620–629
+7. BoydS,Vandenberghe L(2004)ConvexOptimization.CambridgeUniversityPress,NewYork,NY,USA
+8. ByrdR, ChinG, Neveitt W, Nocedal J(2011) Onthe useof stochastic hessianinformationinoptimization methods formachinelearning.SIAMJournalonOptimization21(3):977–995, DOI10.1137/10079923X
+9. ByrdRH,HansenSL,NocedalJ,SingerY(2016)Astochasticquasi-newtonmethodforlarge-scaleoptimization.SIAM JournalonOptimization26(2):1008–1031
+10. Cauchy AL (1847) M´ethode g´en´erale pour la r´esolution des syst`emes d’´equations simultan´ees. Compte Rendu des S’eancesdeL’Acad’emiedesSciences XXVS’erieA(25):536–538
+11. Chauhan VK, Dahiya K, Sharma A (2017) Mini-batch block-coordinate based stochastic average adjusted gradient methods to solve big data problems. In: Proceedings of the Ninth Asian Conference on Machine Learning, PMLR, vol77,pp49–64, URLhttp://proceedings.mlr.press/v77/chauhan17a.html
+12. ChauhanVK,DahiyaK,SharmaA(2018)Problemformulationsandsolversinlinearsvm:areview.ArtificialIntelligenceReviewDOI10.1007/s10462-018-9614-6, URLhttps://doi.org/10.1007/s10462-018-9614-6
+13. Chauhan VK, Sharma A, Dahiya K (2018) Faster learning by reduction of data access time. Applied Intelligence
+48(12):4715–4729, DOI10.1007/s10489-018-1235-x
+14. Chauhan VK, Sharma A, Dahiya K (2019) LIBS2ML: A Libraryfor Scalable Second Order Machine Learning Algorithms.arXivURLhttps://arxiv.org/abs/1904.09448,1904.09448
+15. ChauhanVK,SharmaA,DahiyaK(2019)Saags:Biasedstochasticvariancereductionmethodsforlarge-scalelearning. AppliedIntelligence DOI10.1007/s10489-019-01450-3
+16. CsibaD,RichtP(2016)Importance SamplingforMinibatches pp1–19, arXiv:1602.02283v1
+17. Defazio A, Bach F, Lacoste-Julien S (2014) Saga: A fastincremental gradient method with support for non-strongly convex composite objectives. In: Proceedings of the 27th International Conference on Neural Information Processing Systems,MITPress,Cambridge,MA,USA,NIPS’14,pp1646–1654
+18. FanR,ChangK,HsiehC,WangX,LinC(2008)Liblinear:Alibraryforlargelinearclassification.JMLR9:1871–1874
+19. FanhuaS,ZhouK,ChengJ,TsangIW,ZhangL,TaoD(2018)Vr-sgd:Asimplestochasticvariancereductionmethod formachinelearning.arXivURLhttps://arxiv.org/abs/1802.09932
+20. FletcherR(1980)Practicalmethods ofoptimization,vol.1,unconstrainedoptimization
+21. HsiaCY,ZhuY,LinCJ(2017)Astudyontrustregionupdaterulesinnewtonmethodsforlarge-scalelinearclassification.In:ProceedingsoftheNinthAsianConferenceonMachineLearning,PMLR,ProceedingsofMachineLearning Research,vol77,pp33–48
+22. Hsia CY, Chiang WL, Lin CJ (2018) Preconditioned conjugate gradient methods in truncated newton frameworks for large-scale linear classification. In: Proceedings of the Tenth Asian Conference on Machine Learning, PMLR, ProceedingsofMachineLearningResearch
+23. Johnson R, Zhang T (2013) Accelerating stochastic gradient descent using predictive variance reduction. In: Burges CJC,BottouL,WellingM,GhahramaniZ,WeinbergerKQ(eds)AdvancesinNeuralInformationProcessingSystems
+26,CurranAssociates,Inc.,pp315–323
+24. Kolte R, Erdogdu M, Ozgur A (2015) Accelerating svrg via second-order information. In: NIPS Workshop on OptimizationforMachineLearning
+25. Le Roux N, Schmidt M, Bach F (2012) A Stochastic Gradient Method with an Exponential Convergence Rate for Strongly-ConvexOptimizationwithFiniteTrainingSets.Tech.rep.,INRIA
+26. Lin C, Mor J (1999) Newton’s method for large bound-constrained optimization problems. SIAM Journal on Optimization9(4):1100–1127, DOI10.1137/S1052623498345075
+27. LinCJ,WengRC,KeerthiSS(2008) Trustregionnewtonmethodforlogisticregression.JMLR9:627–650
+28. LiuDC,NocedalJ(1989)Onthelimitedmemorybfgsmethodforlargescaleoptimization.MathematicalProgramming
+45(1):503–528
+29. Lucchi A, McWilliams B, Hofmann T (2015) A variance reduced stochastic newton method. arXiv URL http://arxiv.org/abs/1503.08316
+30. Mokhtari A, Ribeiro A (2014) Res: Regularized stochastic bfgs algorithm. IEEE Transactions on Signal Processing
+62(23):6089–6104
+31. MoritzP,NishiharaR,JordanMI(2016) Alinearly-convergentstochasticl-bfgsalgorithm.In:AISTATS
+32. Nocedal,WrightS(1999)NumericalOptimization.Springer,NewYork
+33. RobbinsH,MonroS(1951)Astochasticapproximationmethodvol-22:pp.400–407
+34. Schmidt M, Le Roux N, Bach F (2016) Minimizing finite sums with the stochastic average gradient. Math Program pp1–30
+35. Schraudolph NN, Yu J, Gnter S (2007) A stochastic quasi-newton method for online convex optimization. In: Meila M,ShenX(eds)ProceedingsoftheEleventhInternationalConferenceonArtificialIntelligenceandStatistics,PMLR,
+16
+ProceedingsofMachineLearningResearch,vol2,pp436–443
+36. Shalev-Shwartz S,ZhangT (2013) Stochastic dualcoordinate ascent methods forregularizedloss.JMachLearnRes
+14(1):567–599
+37. Shalev-Shwartz S, Singer Y, SrebroN (2007) Pegasos: Primalestimated sub-gradient solver forsvm. In: Proceedings ofthe24thInternational ConferenceonMachineLearning,ACM,NewYork,NY,USA,ICML’07,pp807–814
+38. Steihaug T (1983) The conjugate gradient method and trust regions in large scale optimization. SIAM Journal on NumericalAnalysis20(3):626–637
+39. Zhang Y, Xiao L (2015) Stochastic primal-dual coordinate method for regularized empirical risk minimization. In: Proceedings of the 32Nd International Conference on International Conference on Machine Learning - Volume 37, ICML’15,pp353–361
+40. ZhouL,PanS,WangJ,VasilakosAV(2017)Machinelearningonbigdata:Opportunitiesandchallenges.Neurocomputing237:350–361,DOIhttps://doi.org/10.1016/j.neucom.2017.01.026
+17

@@ -1,0 +1,156 @@
+Automatic Layout Generation with Applications in Machine Learning Engine Evaluation Haoyu Yang∗, Wen Chen∗, Piyush Pathak†, Frank Gennari†, Ya-Chieh Lai†, Bei Yu∗
+∗The Chinese University of Hong Kong
+†Cadence Design Systems, Inc. Email: hyyang,byu @cse.cuhk.edu.hk
+{ } Abstract—Machine learning-based lithography hotspot detection has been deeply studied recently, from varies feature extraction techniques to efficient learning models. It has been observed that such machine learning-based frameworks are providing satisfactory metal layer hotspot prediction results on known public metal layer benchmarks. In this work, we seek to evaluate how these machine learning-based hotspot detectorsgeneralizetocomplicatedpatterns.Wefirstintroduce a automatic layout generation tool that can synthesize varies layout patterns given a set of design rules. The tool currently supports both metal layer and via layer generation. As a case study, we conduct hotspot detection on the generated (a)Lowviadensity (b)Highviadensity via layer layouts with representative machine learning-based Fig. 1 Visualization of generated via patterns. Vias are hotspotdetectors,whichshowsthatcontinuousstudyonmodel randomly placed at the intersection region of given upper robustness and generality is necessary to prototype and integrate the learning engines in DFM flows. The source code of andlowermetalshapeswithapredeterminedprobabilitythat the layout generation tool will be available at https://github. controls via density. com/phdyang007/layout-generation. I. INTRODUCTION OPC recipe development. An examples of via layers with The rapid development of machine learning techniques differentdensitycanbefoundinFig.1,wheretheupperand have brought promising alternatives to design for manufacthelowermetalgratingsareintentionallyplacedtoassistvia turabilityproblems,especiallyforlithographyhotspotdetecgeneration. tion. Related researches range from varies feature extraction As a case study, we conduct hotspot detection on the gentechniques[1]–[7]andefficientlearningmodels[1],[8]–[13]. eratedvialayerlayoutswithrepresentativemachinelearningMost of these frameworks are presenting very high hotspot based hotspot detectors [1], [8], [10], which adopt smoothdetection accuracy with reasonable false positive overhead. boosting [1], shallow convolutional neural networks [8], However, most of them are targeting at a public benchmark
+[10], respectively. Although these hotspot detectors achieve at legacy technology node from ICCAD2012 CAD Contest promisingresultsonICCAD2012CADcontestbenchmarks,
+[14], with carefully designed and tuned parameters and we show performance degradation occurs with complex machine learning engines. dataset,whichimpliescontinuousstudyonmodelrobustness In this paper, we seek to evaluate how these machine and generality is necessary to prototype and integrate the learning-based hotspot detectors generalize to complicated learning engines in DFM flows. The contributions of this patterns. We first introduce an automatic layout generation paper are listed below. tool that can synthesize various layout patterns given a set of design rules. Unlike the existing pattern generation • WedevelopalayoutgenerationtoolkitwithPythonand KLayout [17] backbones, to support efficient unidirecsolutions that seek to increase the pattern space within tional metal layer and via/contact generation. a constrained Euclidean distance [15], [16], the proposed automaticgenerationflowgeneratespatternsforcertainDRC • We feed the generated via layers into a commercial lithography simulator and construct a via layer hotspot constrained designs. benchmark suit for hotspot detector evaluation. The tool supports both metal layer and via layer generation. In the configuration files, we can manually achieve • Evaluationexperimentsshowthatrepresentativehotspot detectors may fail to exhibit a satisfactory detection certain layout properties including tip to tip distance, wire performanceoneitheraccuracyorfalsepositivepenalty. CD, layout density, via density and so on. These configurations enable a generation of diverse layout patterns under The rest of the paper is organized as follows. Section II a given technology node, which can be applied to various describes details of the layout generation flow. Section III DFM research and analysis including hotspot detection and presents a case study of state-of-the-art hotspot detector
+9102 ceD
+21
+]GL.sc[
+1v69750.2191:viXra
+evaluation, followed by conclusion in Section IV. line-end to line-end distance II. ALAYOUTGENERATIONTOOLKIT track 1 In this section, we will introduce the details of our layout track pitch generation flow with Python and KLayout backbones. In current version, we support unidirectional metal layer and track 2 wire CD via/contact generation. wire length A. Metal Generation track 3 The layout generation tool generates metal layers cell by cell where metal shape distribution and placement are Fig. 2 Visualization of terminologies in metal generation controlled by a set of design constraints as listed below. constraints.
+- wire_cd (w). The critical dimension of metal wire Algorithm 1 On Track Wire Generation shapes, defined by wire width.
+- track_pitch (p). The distance between adjacent 1: function DrawWire(w, t 1 , t 2 , t g , l 1 , l 2 , x t , x o , y o ) wire tracks. 2: Initialize parameters x,y 0;
+←
+- min_t2t (t 1 ). The minimum line-end to line-end dis- 3: while x<x t do tance in each wire track. 4: l rand(l 1 ,max(l 2 ,x t x));
+← −
+- max_t2t (t 2 ). The maximum line-end to line-end 5: x ll ← x + x o ,y ll ← y + y o ,x ur ← x + l + distance in each wire track. x o ,y ur y+w+y o ;
+←
+- min_length (l 1 ). The minimum length of a single 6: Drawarectangledefinedbyx ll ,y ll ,x ur andy ur ; wire shape along the wire tracks. 7: t rand(t 1 ,min(t 2 ,x x ur ),t g );
+← −
+- max_length (l ). The maximum length of a single 8: x x+l+t;
+2 ← wire shape along the wire tracks. 9: end while
+- t2t_grid (t ). The unit size of line-end to line-end 10: end function g distance.
+- total_x (x ). The cell bounding box size in x direc- Algorithm 2 Wire Cell Generation t tion. 1: functionDrawWireCell(w,p,t 1 ,t 2 ,t g ,l 1 ,l 2 ,x t ,y t ,
+- total_y (y t ). The cell bounding box size in y direc- x o , y o ) tion. 2: Initialize parameters y 0;
+← To make a better understanding of these concepts, we also 3: while y <y t do visualize certain terminologies in Fig. 2. It can be seen that 4: DrawWire(w, t 1 , t 2 , t g , l 1 , l 2 , x t , x o , y); min_t2t, max_t2t, min_length, and max_length 5: y y o +p+w;
+← make key contributions to metal distribution and density. 6: end while Metal shapes are generated track-by-track and each track 7: return Cell; is filled as described in Algorithm 1. We draw shapes from 8: end function an initial lower-left coordinate (x,y) (line 2), which will be increased until x reaches the total cell size constraint x t during the generation procedure (line 3); the wire length is with Algorithm 1. Thus, we have additional via constraints determined by a random number between l and max(x besides those control wire shape generation.
+1 t
+− x,l ) that ensures the shape length will never exceed the - via_x (v ). Via size along x direction.
+2 x cell size (line 4); we then draw a rectangle defined by the - via_y (v ). Via size along y direction. y lower-left and upper-right coordinates (lines 5 – 6); spacing - density (ρ). The probability of a via appearing at a betweenadjacentshapesonsingletrackisgeneratedbyline- candidate via location. endtoline-endconstraintst andt (line7)followedbythe - enclosure_x(e ).Theminimumhorizontaldistance
+1 2 x update of start coordinates (line 8). The entire cell is filled from a via to metal line-end. track-by-trackthatcanbetotallyinparallelasdifferenttracks - enclosure_y(e ).Theminimumhorizontaldistance y are generated independently, as in Algorithm 2. from a via to metal line-end.
+- via_pitch_x (v ). The minimum center-to-center px B. Via Generation distance of two vias in the same tract in x direction. Vias, as conductive connections between different metal - via_pitch_x (v py ). The minimum center-to-center layers, are most likely to occur at regions where metals in distance of two vias in the same tract in y direction. adjacent layers are overlapped in the plane. The basic idea where via_x and via_y are directly satisfied by controlof via generation is creating candidate via locations with ling wire_cds of two metal layers, density contributes horizontal and vertical metal shapes that can be generated to a threshold whether we should place a via at a candidate
+TABLE I Metal layer generation specs (µm). cellname wire cd track pitch min t2t max t2t min length max length t2t grid total x total y test1 0.016 0.032 0.012 0.2 0.044 0.1 0.005 100 100 test2 0.016 0.032 0.012 0.2 0.044 0.1 0.012 100 100 test3 0.016 0.032 0.012 0.4 0.044 0.5 0.005 100 100 test4 0.016 0.032 0.012 0.4 0.044 0.5 0.012 100 100 test5 0.016 0.032 0.012 0.6 0.044 0.5 0.036 100 100 test6 0.016 0.032 0.012 0.6 0.044 0.5 0.072 100 100 via location. Challenging problem comes with satisfying Algorithm 3 Via Generation enclosure and pitch constraints. Require: M1 specs, M2 specs, v , v , e , e , v , v . x y x y px py We propose the concept of assist wire generation that Ensure: Via cell. generates on track wire shapes with line-ends shortened by 1: C 1 Call DrawWireCell with M1 specs;
+← the enclosure distance. As shown in Fig. 3, we generate via 2: C 2 Call DrawWireCell with M2 specs;
+← candidate locations by taking the intersection between the 3: M vc calculateviacandidatematrixbytakingC 1 AND
+← assist layer and M2 layer, instead of directly calculate the C and insert via shapes;
+2 intersection between M1 and M2. With the help of assist 4: M vc Detect enclosure conflicts and remove conflict
+← wire, we can direclty filter out vias that violate enclosure vias; constraints by checking the area of them. In real cases, en- 5: for each M vc (i,j) do closure constraints are applicable to both x and y directions, 6: if M vc (i,j)=1 and M vc (i 1,j)=1 then
+− which can be solved by simply using assist wires in vertical 7: Delete via cooresponding to M vc (i,j); tracks. 8: M vc (i,j) 0;
+← To deal with the pitch constraints, we create a via can- 9: end if didate matrix for each cell, with each entry representing a 10: end for crosspointbetweenahorizontalandaverticaltracks.Weput 11: for each M vc (i,j) do oneatentrieswheretherearemetalshapesoverlappingwith 12: if M vc (i,j)=1 and M vc (i,j 1)=1 then
+− each other and leave other entries zero. The via candidate 13: Delete via cooresponding to M vc (i,j); matrix for the cell in Fig. 3 can then be written as follows. 14: M vc (i,j) 0;
+←
+ 0 1 1  15: end if M vc
+=0 1 1. (1) 16: end for
+0 0 1 After removing enclosure violations, the matrix becomes track 1 track 2 track 3
+ 
+0 1 0 track 1 M vc
+=0 1 0. (2)
+0 0 1 Because the metal pitch is intentionally picked the same as track 2 M1 viaduringmetallayergeneration,theproblemoffindingvia
+(cid:20) (cid:21) M2
+(cid:2) (cid:3) 1 pitch violations becomes finding 1 1 or patterns in track 3 Via Candidate
+1 M . Finally, via pitch violations can be easily removed. Assist Wire vc To summary, the via generation can be done with Algorithm 3, where we first generate metal layers that are Fig. 3 Satisfying enclosure constraints with assist wires. to be connected by vias (lines 1–2); candidate via shapes are placed by taking the intersection of two metal layers along with the calculation of via candidate matrix (line 3); dipicted in Fig. 4 that corresponds to the area of metel/via following steps are removing enclosure conflicts (line 4), cell generated per second. pitch_x conflicts (lines 5–10) and pitch_y conflicts
+(lines 11–16). III. EVALUATIONOFREPRESENTATIVEHOTSPOT DETECTORS C. Layout Generation Performance We evalutate the performance of the proposed layout As a case study, we generate a group of via patterns with generationtoolonanIntelXeon3.5GHzplatformwithsingle above via generation flow and obtain clip labels by feeding thread. We adopt the specs in TABLE I and TABLE II them into an industrial DRC and simulation tool. In this for metal and via layer generation, respectively, with each section, we will use the generated dataset to evaluate the test cell has an area of 0.001mm2. The throughputs are performance of different loss functions on several represen-
+TABLE II Via layer generation specs (µm). cellname via1 x via1 y m1 enc m2 enc min via1 pitch x via fraction min via1 pitch y total x total y test1 0.07 0.07 0.02 0.02 0.14 0.1 0.14 100 100 test2 0.07 0.07 0.02 0.02 0.14 0.2 0.14 100 100 test3 0.07 0.07 0.02 0.02 0.14 0.3 0.14 100 100 test4 0.07 0.07 0.02 0.02 0.14 0.4 0.14 100 100 test5 0.07 0.07 0.02 0.02 0.14 0.5 0.14 100 100 test6 0.07 0.07 0.02 0.02 0.14 0.6 0.14 100 100
+800
+625
+600
+403
+400
+200
+0 Metal Via tuphguorhT non-hotspotprobabilityover50%willbecorrectlyclassified. Therefore, it is not necessary to guide the neural networks to learn a high confidence prediction. Accordingly, a batch biasedlearningisproposedtointroducelabelpenaltyonnonhotspot patterns based on their training loss on current step which in turn controls the training label penalty. B. Smooth Boosting [1] Fig. 4 Throughput (µm2 / s) estimation of the layout gener- [1] provides a legacy machine learning solution for ation tool. hotspot detection which includes feature engineering and learning engine development. In the feature extraction stage, TABLE III Neural Network Configuration. [1] improves traditional concentric circle area sampling Layer Kernel Size Stride Output Node # (CCAS) [3] with mutual information, which considers that only partial of sampled circles have strong contributions to conv1-1 3 1 12×12×16 conv1-2 3 1 12×12×16 final feature vectors and labels. Circle selection problem can maxpooling1 2 2 6×6×16 be formulated as follows. conv2-1 3 1 6×6×32 I∗ =arg min (cid:88) I(C ;Y), (3a) ma c x o p n o v o
+2 l
+- i
+2 ng2
+3
+2
+1
+2
+6
+3
+×
+×
+6
+3
+×
+×
+3
+3
+2
+2 nc I nc
+⊆I i∈I nc i s.t. i j >d, i,j I , (3b) fc1 - - 250
+| − | ∀ ∈ nc fc2 - - 2 where I∗ includes selected circle indices, I = i1 < i < r ,i ncN contains indices of all circle candid
+{ at
+| es and max
+∈ } tativemachinelearning-basedhotspotdetectors[1],[8],[10]. (cid:88) (cid:88) p(c i ,y) I(C ;Y)= p(c ,y)log , (4) We first introduce beneath ideas of these hotspot detectors. i i p(c )p(y) i ci∈Ciy∈Y A. Feature Tensor Extraction and Batch Biased Learning which calculates the mutual information of i circle and
+(BBL) [8] th labels.HereC sandY arerandomvariablesdefinedincircle i Layout hotspot detection, originally, can be regarded as index space and label space. an image classification problem. However, the input size is Smooth Boosting [18], as an ensemble learning engine much larger than images in traditional classification tasks with good noise tolerance, is chosen as the preferred model becausealargeareaoflayoutcontextisrequiredtodetermine here for hotspot detection tasks, where the weight of each whether a clip contains hotspot or not. [8] tackles the weakclassifierisupdatedduringtrainingsuchthateachweak problem with a layout compression technique in frequency classifier satisfies Equation (5). domain that dramatically reduces input size as well as n preserve a large fraction of original layout information. The 1(cid:88) 1 M (j) h (x ) y γ, (5) compression is conducted following four steps including (1) 2 t | t j − j |≤ 2 − j=1 layout slicing based on critical dimension (2) DCT on sub clip blocks (3) flatten DCT coefficients in zig-zag form and where M (j)s are weight terms, h s are hypothesis function t t
+(4) discarding high frequency components and constructing of each weak classifier and γ is a hyper-parameter defined feature tensor. Additionally, the compressed data can be in [18]. easilylearnedwithshallowneuralnetworks.Asacasestudy, Intheinferencestage,allweaklearnerswillworktogether wewillusethearchitecturespecifiedinTABLEIIIinallthe to predict the label of input clips with their weighted output deep learning related experiments. being the final classification results, as in Equation (6). In the procedure of training a hotspot detector, neuron
+(cid:32) T (cid:33) weights are updated towards pattern labels. [8] takes advan- 1 (cid:88) f =sign h . (6) tageofthefactthatanynon-hotspotinstanceswithpredicted T t t=1
+C. LithoROC [10] 8 Receiver operating characteristic (ROC) has be widely
+6 used as a machine learning model evaluation metric. Given a dataset D = { (x i ,y i ) } N i=1 , where x i ∈ Rd and y i ∈ 4
+1,+1 are the i-th data sample in the feature space and
+{ it − s true c } lass label, we can divide the dataset into a positive 2 sample set D = (x+,+1 N+ and a negative sample set D = (x + −, 1 { N− i , wh } e i r = e 1 N and N denote the 0 1 0.5 0 0.5 1 numbe − r of p { osi i tive − an } d i=1 negative sam + ples resp − ectively, and − − z N =N +N . Let f(x) denote the prediction model. + − Based on the equivalence of area under the ROC curve(AUC) and Wilcoxon-Mann-Whitney (WMW) statistic test of ranks, pairwise convex surrogate loss Φ(f(x+) f(x−)) is applied to make the AUC differentiable. i Th − e j original AUC function is defined as following:
+1 (cid:88) N+
+(cid:88) N− AUC = I(f(x+) f(x−)), (7) N N i − j
++ − i=1j=1 where I((f(x+) f(x−))) is the discontinuous indicator i − j function. The differentiable form is shown below to work as the loss function.
+1 (cid:88) N+
+(cid:88) N− L (f)= Φ(f(x+) f(x−)). (8) Φ N N i − j
++ − i=1j=1 ThenmaximizingtheAUCscoreisequivalenttominimizing the loss function L (f). Let z = f(x+) f(x−), [10]
+Φ i − j recommend four surrogate loss functions for differentiable AUC approximation: the pairwise squared loss (PSL) [19], thepairwisehingeloss(PHL)[20],thepairwiselogisticloss
+(PLL) [21], and the R loss function [22] as shown below.
+Φ (z)=(1 z)2, (9) PSL
+−
+Φ (z)=max(1 z,0), (10) PHL
+−
+Φ (z)=log(1+exp( βz)), (11) PLL
+−
+(cid:40) ( (z γ))p, if z >γ,
+Φ (z)= − − (12) R
+0, otherwise. It should also be noted that in R loss function we have 0<
+γ < 1 and p > 1. Additionally, we heuristically define two newcubiclossfunctions(PairwiseCubicLossFunction1and Pairwise Cubic Loss Function2) and test their performances and compare with previous ones.
+Φ (z)=max(8 (1+z)3,0), (13) PCL1
+−
+Φ (z)=max((1 z)3,0). (14) PCL2 − Fig. 5 illustrates the comparison of all surrogate loss functions. Note that there is a sharp increase in penalty when z goes to -1 in our cubic functions. The purpose is to apply more penalty when false positive and false negative simultaneously appear. As we can see from the curve of PCL2, the penalty for z is highly to the original ones when z [0,1]. Furthermore, we can also clearly distinguish
+∈ larger penalty when any mis-prediction occurs (for curve region [ 1,0]), which is expected to result in slightly better
+− performance.
+)z(Φ PCL1 PCL2 PSL PHL PLL R Fig. 5 Visualization of different approximations of AUC.
+100 75
+50
+25
+0 B B L Boost P H L P L L PS L R M S
+)%( ycaruccA
+100 75
+50
+25
+0 B B L Boost P H L P L L PS L R M S
+(a)Accuracy
+)%( etaR mralA eslaF Metal Via
+(b)FalseAlarm Fig. 6 Evaluation of machine learning-based hotspot detectors. D. Experiments We implement these hotspot detection solutions with Python and Tensorflow 1.9. All experiments are conducted onaIntelplatformwithTitanXpgraphicunit.Fortheexperiments on BBL and SMBoost, we adopt the same parameter settings as in [8] and [1] respectively. In the experiments on LithoRoC,weexploretheperformancesof[8]withsurrogate lossfunctionsuggestedby[10]toseekfortheincreasingand stabilizing the hotspot detection accuracy and minimizing falsealarms.Inourexperiment,weadopttheoriginalunified data from [8]. The detector is evaluated with γ = 1e 3,
+−
+α = 0.65, m = 32 and k = 2000. We set β = 3 in PLL loss function and γ =0.7, p=2 in R loss function. In each iteration, m hotspot and m non-hotspot training instances
+2 2 are randomly selected to perform weight updating. Learning rate decays after every k iterations. During optimization, we randomly select one between-class pair to calculate z. After eachiteration,anewbatchisgenerated,soallbetween-class pairs have equal probability to be fetched for optimization. In the end, we use the last saved model to test prediction performance, which is measured following previous works
+[14]. Definition 1 (Accuracy (Acc)). The ratio between the number of correctly predicted hotspot clips and the number of all real hotspot clips. Definition 2 (False Alarm Rate (FA)). The ratio between the number of correctly predict non-hotspot clips and the number of all non-hotspot clips.
+TABLE IV CNN-based hotspot detectors behave unstably on challenging datasets. PSL PHL PLL R PCL1 PCL2 BBL ID Acc(%) FA(%) Acc(%) FA(%) Acc(%) FA(%) Acc(%) FA(%) Acc(%) FA(%) Acc(%) FA(%) Acc(%) FA(%)
+1 10.7 0.96 94.17 60.95 87.87 43.79 10.82 1.92 81.33 36.36 24.14 2.82 58.74 24.50
+2 17.48 2.5 79.31 38.28 53.26 16.90 30.56 7.81 83.59 39.37 86.09 44.69 62.78 23.43
+3 17.6 3.26 93.34 59.54 33.17 6.59 17.95 2.11 40.07 8.77 85.25 40.90 60.64 22.92
+4 20.81 4.23 38.76 7.94 28.18 4.99 30.92 7.11 92.39 51.34 72.53 27.66 65.40 31.37
+5 18.67 3.07 17.36 1.66 64.09 22.86 15.57 1.86 85.49 39.88 46.25 11.46 58.26 24.71 Ave 17.05 2.80 64.59 33.67 53.31 19.03 21.16 4.16 76.57 35.14 62.85 25.51 61.16 25.39 Var 14.39 1.45 1204.02 780.35 586.94 246.03 83.02 9.13 433.51 249.92 727.40 330.40 8.78 11.74 To explore the robustness of the network, we perform [2] H.Yang,P.Pathak,F.Gennari,Y.-C.Lai,andB.Yu,“Detectingmultifive parallel experiments and differentiate them with IDs, as layerlayouthotspotswithadaptivesquishpatterns,”inProc.ASPDAC,
+2019,pp.299–304. shown in the first column of TABLE IV. Adjacent columns
+[3] T.Matsunawa,J.-R.Gao,B.Yu,andD.Z.Pan,“Anewlithography display detailed results with headers “PSL”, “PHL”, “PLL” hotspotdetectionframeworkbasedonAdaBoostclassifierandsimpliand “R”, which correspond to the AUC approximation func- fiedfeatureextraction,”inProc.SPIE,vol.9427,2015.
+[4] F. Yang, S. Sinha, C. C. Chiang, X. Zeng, and D. Zhou, “Improved tiondefinedfromEquation(9)toEquation(12)respectively. tangent space based distance metric for lithographic hotspot classifiColumns “Acc” and “FA” denote hotspot detection accuracy cation,”IEEETCAD,vol.36,no.9,pp.1545–1556,2017. andfalsealarminthepercentageformrespectively.Inthelast [5] Y.Tomioka,T.Matsunawa,C.Kodama,andS.Nojima,“Lithography hotspot detection by two-stage cascade classifier using histogram of tworows,wecomputetheaverageandvarianceafterBessel’s orientedlightpropagation,”inProc.ASPDAC,2017,pp.81–86. Correctionforeachcolumntoestimatetheirperformanceand [6] H.Geng,H.Yang,B.Yu,X.Li,andX.Zeng,“SparseVLSIlayout stability.Itcanbeseenthatalthoughthesetrainingsolutions feature extraction: A dictionary learning approach,” in Proc. ISVLSI,
+2018,pp.488–493. behave reasonably good on some designs (see blue bars of
+[7] H. Yang, Y. Lin, B. Yu, and E. F. Y. Young, “Lithography hotspot Fig. 6), they all fail on challenging datasets. Furthermore, detection:Fromshallowtodeeplearning,”inProc.SOCC,2017,pp. someoftheexistingsolutionsrelyhighlyontheinitialstatus 233–238.
+[8] H. Yang, J. Su, Y. Zou, Y. Ma, B. Yu, and E. F. Y. Young, “Layout oftheneuralnetworksandhenceyieldunstableperformance, hotspot detection with feature tensor generation and deep biased as listed in TABLE IV. learning,”IEEETCAD,vol.38,no.6,pp.1175–1187,2019.
+[9] R.Chen,W.Zhong,H.Yang,H.Geng,X.Zeng,andB.Yu,“Faster IV. CONCLUSION region-basedhotspotdetection,”inProc.DAC,2019,pp.146:1–146:6.
+[10] W.Ye,Y.Lin,M.Li,Q.Liu,andD.Z.Pan,“LithoROC:lithography In this paper, we propose a test layout generation toolkit hotspotdetectionwithexplicitROCoptimization,”inProc.ASPDAC,
+2019,pp.292–298. built upon KLayout backbone. The toolkit supports both
+[11] D. Ding, B. Yu, J. Ghosh, and D. Z. Pan, “EPIC: Efficient prediccontact/via and uni-directional metal layer generation with tion of IC manufacturing hotspots with a unified meta-classification certain design rule configurations. The tool can also be formulation,”inProc.ASPDAC,2012,pp.263–270.
+[12] H. Yang, L. Luo, J. Su, C. Lin, and B. Yu, “Imbalance aware easily extended to other purposes including cell processlithographyhotspotdetection:adeeplearningapproach,”JM3,vol.16, ing, complicated test pattern generation (e.g. Hilbert space no.3,p.033504,2017. patterns) and layout transformation. As a case study, we [13] M.ShinandJ.-H.Lee,“Accuratelithographyhotspotdetectionusing deepconvolutionalneuralnetworks,”JM3,vol.15,no.4,p.043507, generate a set of DRC-clean via layout clips to evalu2016. ate the robustness and stability of state-of-the-art machine [14] A. J. Torres, “ICCAD-2012 CAD contest in fuzzy pattern matching learning-based hotspot detectors. Here we introduce three forphysicalverificationandbenchmarksuite,”inProc.ICCAD,2012, pp.349–350. recent hotspot detectors that adopt batch biased learning,
+[15] H.Yang,P.Pathak,F.Gennari,Y.-C.Lai,andB.Yu,“DeePattern:Laysmooth boosting and AUC optimization respectively, which outpatterngenerationwithtransformingconvolutionalauto-encoder,” all exhibit good performance on public metal layer design inProc.DAC,2019,pp.148:1–148:6.
+[16] S. Shim and Y. Shin, “Topology-oriented pattern extraction and but unstable on the generated via designs. The study shows classificationforsynthesizinglithographytestpatterns,”JM3,vol.14, continuous research are necessary to increase the robustness no.1,pp.013503–013503,2015. andstabilityofmachinelearningmodelsandhenceprototype [17] “KLAYOUT,”https://www.klayout.de.
+[18] R.A.Servedio,“Smoothboostingandlearningwithmaliciousnoise,” such frameworks into real back-end design flow. JournalofMachineLearningResearch,vol.4,no.Sep,pp.633–648,
+2003. ACKNOWLEDGMENTS [19] W.Gao,R.Jin,S.Zhu,andZ.-H.Zhou,“One-passaucoptimization,” inProc.ICML,2013,pp.906–914. This work is supported in part by The Research Grants [20] H. Steck, “Hinge rank loss and the area under the roc curve,” in Council of Hong Kong SAR (Project No. CUHK24209017). European Conference on Machine Learning. Springer, 2007, pp.
+347–358.
+[21] C.RudinandR.E.Schapire,“Margin-basedrankingandanequivaREFERENCES lencebetweenadaboostandrankboost,”JournalofMachineLearning Research,vol.10,no.Oct,pp.2193–2232,2009.
+[1] H. Zhang, B. Yu, and E. F. Y. Young, “Enabling online learning [22] L.Yan,R.H.Dodier,M.Mozer,andR.H.Wolniewicz,“Optimizing in lithography hotspot detection with information-theoretic feature classifier performance via an approximation to the wilcoxon-mannoptimization,”inProc.ICCAD,2016,pp.47:1–47:8. whitneystatistic,”inProc.ICML,2003,pp.848–855.
