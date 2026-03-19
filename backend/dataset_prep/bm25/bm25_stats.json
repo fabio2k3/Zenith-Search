@@ -1,0 +1,7 @@
+{
+  "documents": 764,
+  "average_document_length": 899.5746073298429,
+  "vocabulary_size": 72044,
+  "output_bm25_path": "D:\\Projects\\My-Projects\\Zenith-Search\\backend\\dataset_prep\\bm25\\bm25.pkl",
+  "input_chunks_path": "D:\\Projects\\My-Projects\\Zenith-Search\\backend\\dataset_prep\\embeddings\\chunks.jsonl"
+}

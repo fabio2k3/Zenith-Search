@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from typing import Optional
 
 
 class SearchRequest(BaseModel):
@@ -11,6 +12,14 @@ class SearchResult(BaseModel):
     file_name: str
     relative_path: str
     text: str
+
+    # Campos extra útiles para depuración y ranking híbrido
+    chunk_id: Optional[str] = None
+    doc_id: Optional[str] = None
+    bm25_score: float = 0.0
+    vector_score: float = 0.0
+    bm25_rank: Optional[int] = None
+    vector_rank: Optional[int] = None
 
 
 class SearchResponse(BaseModel):
