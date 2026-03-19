@@ -1,0 +1,9 @@
+{
+  "model_name": "intfloat/multilingual-e5-small",
+  "chunk_count": 764,
+  "embedding_dim": 384,
+  "batch_size": 64,
+  "chunks_file": "chunks.jsonl",
+  "embeddings_file": "embeddings.npy",
+  "index_file": "faiss.index"
+}
