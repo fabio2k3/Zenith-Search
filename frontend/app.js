@@ -30,11 +30,6 @@ function escapeHtml(str) {
     .replaceAll("'", '&#039;');
 }
 
-function formatScore(n) {
-  const num = Number(n ?? 0);
-  return Number.isFinite(num) ? num.toFixed(4) : '0.0000';
-}
-
 // ── Partículas de polvo/ceniza ───────────────────
 const PARTICLE_COUNT = 55;
 const particles = Array.from({ length: PARTICLE_COUNT }, () => spawnParticle(true));
@@ -75,30 +70,27 @@ function spawnRaven(i) {
 
 function drawRaven(x, y, wingPhase, scale, dir, opacity) {
   if (opacity <= 0) return;
+
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(dir * scale, scale);
   ctx.globalAlpha = opacity * 0.22;
   ctx.fillStyle = '#c8922a';
 
-  // Cuerpo
   ctx.beginPath();
   ctx.ellipse(0, 0, 10, 5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Cabeza
   ctx.beginPath();
   ctx.ellipse(11, -3, 5, 4, -0.3, 0, Math.PI * 2);
   ctx.fill();
 
-  // Pico
   ctx.beginPath();
   ctx.moveTo(15, -3);
   ctx.lineTo(19, -2);
   ctx.lineTo(15, -1);
   ctx.fill();
 
-  // Cola
   ctx.beginPath();
   ctx.moveTo(-9, 0);
   ctx.lineTo(-16, 3);
@@ -106,7 +98,6 @@ function drawRaven(x, y, wingPhase, scale, dir, opacity) {
   ctx.lineTo(-16, -2);
   ctx.fill();
 
-  // Alas
   const wUp = Math.sin(wingPhase) * 12;
 
   ctx.beginPath();
@@ -130,9 +121,9 @@ let last = 0;
 function loop(ts) {
   const dt = ts - last;
   last = ts;
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Partículas
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
     p.flicker += 0.04;
@@ -152,7 +143,6 @@ function loop(ts) {
     ctx.fill();
   }
 
-  // Cuervos
   for (let i = 0; i < ravens.length; i++) {
     const r = ravens[i];
     r.timer += dt;
@@ -185,6 +175,7 @@ function loop(ts) {
 
   requestAnimationFrame(loop);
 }
+
 requestAnimationFrame(loop);
 
 // ── Buscador ─────────────────────────────────────
@@ -208,6 +199,12 @@ function setLoadingState(message) {
   if (resultsEl) resultsEl.innerHTML = '';
 }
 
+function normalizePdfUrl(url) {
+  if (!url) return '#';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 function renderResults(payload, queryFallback) {
   const query = payload?.query || queryFallback || '';
   const results = Array.isArray(payload?.results) ? payload.results : [];
@@ -215,34 +212,19 @@ function renderResults(payload, queryFallback) {
   if (!resultsEl) return;
 
   if (!results.length) {
-    resultsEl.innerHTML = `
-      <div class="empty-state">
-        No se encontraron resultados para <strong>${escapeHtml(query)}</strong>.
-      </div>
-    `;
+    resultsEl.innerHTML = `<div class="empty-state">No se encontraron resultados para <strong>${escapeHtml(query)}</strong>.</div>`;
     return;
   }
 
   resultsEl.innerHTML = results.map((r, idx) => {
-    const title = r.file_name || r.relative_path || `Resultado ${idx + 1}`;
-    const relPath = r.relative_path || '';
-    const score = formatScore(r.score);
-    const bm25 = formatScore(r.bm25_score);
-    const vector = formatScore(r.vector_score);
-    const text = r.text || '';
+    const title = r.file_name || r.relative_path || `Documento ${idx + 1}`;
+    const url = normalizePdfUrl(r.pdf_url || r.relative_path || '#');
 
     return `
       <article class="result-card">
-        <div class="result-head">
-          <h2 class="result-title">${escapeHtml(title)}</h2>
-          <span class="result-score">Score ${score}</span>
-        </div>
-        <div class="result-path">${escapeHtml(relPath)}</div>
-        <p class="result-text">${escapeHtml(text)}</p>
-        <div class="result-meta">
-          <span>BM25: ${bm25}</span>
-          <span>Vector: ${vector}</span>
-        </div>
+        <a class="result-title" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
+          ${escapeHtml(title)}
+        </a>
       </article>
     `;
   }).join('');

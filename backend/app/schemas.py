@@ -13,7 +13,7 @@ class SearchResult(BaseModel):
     relative_path: str
     text: str
 
-    # Campos extra útiles para depuración y ranking híbrido
+    pdf_url: Optional[str] = None
     chunk_id: Optional[str] = None
     doc_id: Optional[str] = None
     bm25_score: float = 0.0
