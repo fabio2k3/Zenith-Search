@@ -1,15 +1,17 @@
 // ═══════════════════════════════════════════════
 //  ZENITH — app.js
 //  Canvas: partículas de polvo + cuervos voladores
-//  Buscador: animaciones de interacción
+//  Buscador: animaciones de interacción + API
 // ═══════════════════════════════════════════════
+
+const API_URL = 'http://127.0.0.1:8000';
 
 // ── Canvas ──────────────────────────────────────
 const canvas = document.getElementById('canvas');
-const ctx    = canvas.getContext('2d');
+const ctx = canvas.getContext('2d');
 
 function resize() {
-  canvas.width  = innerWidth;
+  canvas.width = innerWidth;
   canvas.height = innerHeight;
 }
 resize();
@@ -19,19 +21,33 @@ window.addEventListener('resize', resize);
 function lerp(a, b, t) { return a + (b - a) * t; }
 function rand(min, max) { return Math.random() * (max - min) + min; }
 
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function formatScore(n) {
+  const num = Number(n ?? 0);
+  return Number.isFinite(num) ? num.toFixed(4) : '0.0000';
+}
+
 // ── Partículas de polvo/ceniza ───────────────────
 const PARTICLE_COUNT = 55;
 const particles = Array.from({ length: PARTICLE_COUNT }, () => spawnParticle(true));
 
 function spawnParticle(randomY) {
   return {
-    x:       rand(0, innerWidth),
-    y:       randomY ? rand(0, innerHeight) : innerHeight + 10,
-    r:       rand(0.3, 1.7),
-    vx:      rand(-0.15, 0.15),
-    vy:      -(rand(0.1, 0.5)),
-    life:    1,
-    decay:   rand(0.0005, 0.002),
+    x: rand(0, innerWidth),
+    y: randomY ? rand(0, innerHeight) : innerHeight + 10,
+    r: rand(0.3, 1.7),
+    vx: rand(-0.15, 0.15),
+    vy: -(rand(0.1, 0.5)),
+    life: 1,
+    decay: rand(0.0005, 0.002),
     flicker: rand(0, Math.PI * 2),
   };
 }
@@ -43,17 +59,17 @@ const ravens = Array.from({ length: RAVEN_COUNT }, (_, i) => spawnRaven(i));
 function spawnRaven(i) {
   const fromLeft = Math.random() > 0.5;
   return {
-    x:         fromLeft ? -80 : innerWidth + 80,
-    y:         rand(innerHeight * 0.05, innerHeight * 0.38),
-    dir:       fromLeft ? 1 : -1,
-    speed:     rand(0.35, 0.95),
+    x: fromLeft ? -80 : innerWidth + 80,
+    y: rand(innerHeight * 0.05, innerHeight * 0.38),
+    dir: fromLeft ? 1 : -1,
+    speed: rand(0.35, 0.95),
     wingPhase: rand(0, Math.PI * 2),
     wingSpeed: rand(0.04, 0.1),
-    scale:     rand(0.6, 1.1),
-    opacity:   0,
-    delay:     i * 7000 + rand(1000, 5000),
-    active:    false,
-    timer:     0,
+    scale: rand(0.6, 1.1),
+    opacity: 0,
+    delay: i * 7000 + rand(1000, 5000),
+    active: false,
+    timer: 0,
   };
 }
 
@@ -63,7 +79,7 @@ function drawRaven(x, y, wingPhase, scale, dir, opacity) {
   ctx.translate(x, y);
   ctx.scale(dir * scale, scale);
   ctx.globalAlpha = opacity * 0.22;
-  ctx.fillStyle   = '#c8922a';
+  ctx.fillStyle = '#c8922a';
 
   // Cuerpo
   ctx.beginPath();
@@ -90,7 +106,7 @@ function drawRaven(x, y, wingPhase, scale, dir, opacity) {
   ctx.lineTo(-16, -2);
   ctx.fill();
 
-  // Alas que baten
+  // Alas
   const wUp = Math.sin(wingPhase) * 12;
 
   ctx.beginPath();
@@ -142,23 +158,25 @@ function loop(ts) {
     r.timer += dt;
 
     if (!r.active) {
-      if (r.timer >= r.delay) { r.active = true; r.timer = 0; }
+      if (r.timer >= r.delay) {
+        r.active = true;
+        r.timer = 0;
+      }
       continue;
     }
 
-    r.x         += r.dir * r.speed;
-    r.y         += Math.sin(r.timer * 0.001) * 0.25;
+    r.x += r.dir * r.speed;
+    r.y += Math.sin(r.timer * 0.001) * 0.25;
     r.wingPhase += r.wingSpeed;
 
-    // Fade in/out en los bordes de pantalla
-    const prog  = r.dir === 1
-      ? (r.x + 80)  / (innerWidth + 160)
+    const prog = r.dir === 1
+      ? (r.x + 80) / (innerWidth + 160)
       : 1 - (r.x + 80) / (innerWidth + 160);
+
     r.opacity = Math.min(1, Math.min(prog * 5, (1 - prog) * 5));
 
     drawRaven(r.x, r.y, r.wingPhase, r.scale, r.dir, r.opacity);
 
-    // Reiniciar al salir de pantalla
     if (r.x < -100 || r.x > innerWidth + 100) {
       ravens[i] = spawnRaven(i);
       ravens[i].delay = rand(2000, 10000);
@@ -167,36 +185,146 @@ function loop(ts) {
 
   requestAnimationFrame(loop);
 }
-
 requestAnimationFrame(loop);
 
 // ── Buscador ─────────────────────────────────────
 const input = document.getElementById('q');
-const btn   = document.getElementById('searchBtn');
+const btn = document.getElementById('searchBtn');
+const resultsEl = document.getElementById('results');
+const statusEl = document.getElementById('status');
 
-function triggerSearch(term) {
-  btn.classList.add('rip', 'glow');
-  setTimeout(() => btn.classList.remove('rip'),  700);
-  setTimeout(() => btn.classList.remove('glow'), 900);
+function pulseBrand() {
+  const brand = document.querySelector('.brand');
+  if (!brand || typeof brand.animate !== 'function') return;
 
-  document.querySelector('.brand').animate(
+  brand.animate(
     [{ transform: 'scale(1)' }, { transform: 'scale(1.018)' }, { transform: 'scale(1)' }],
     { duration: 500, easing: 'ease-out' }
   );
+}
 
-  // Conecta aquí con tu backend
-  console.log('[Zenith] →', term);
+function setLoadingState(message) {
+  if (statusEl) statusEl.textContent = message;
+  if (resultsEl) resultsEl.innerHTML = '';
+}
+
+function renderResults(payload, queryFallback) {
+  const query = payload?.query || queryFallback || '';
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+
+  if (!resultsEl) return;
+
+  if (!results.length) {
+    resultsEl.innerHTML = `
+      <div class="empty-state">
+        No se encontraron resultados para <strong>${escapeHtml(query)}</strong>.
+      </div>
+    `;
+    return;
+  }
+
+  resultsEl.innerHTML = results.map((r, idx) => {
+    const title = r.file_name || r.relative_path || `Resultado ${idx + 1}`;
+    const relPath = r.relative_path || '';
+    const score = formatScore(r.score);
+    const bm25 = formatScore(r.bm25_score);
+    const vector = formatScore(r.vector_score);
+    const text = r.text || '';
+
+    return `
+      <article class="result-card">
+        <div class="result-head">
+          <h2 class="result-title">${escapeHtml(title)}</h2>
+          <span class="result-score">Score ${score}</span>
+        </div>
+        <div class="result-path">${escapeHtml(relPath)}</div>
+        <p class="result-text">${escapeHtml(text)}</p>
+        <div class="result-meta">
+          <span>BM25: ${bm25}</span>
+          <span>Vector: ${vector}</span>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+async function triggerSearch(term) {
+  btn.classList.add('rip', 'glow');
+  setTimeout(() => btn.classList.remove('rip'), 700);
+  setTimeout(() => btn.classList.remove('glow'), 900);
+
+  pulseBrand();
+
+  const query = String(term || '').trim();
+  if (!query) {
+    input.focus();
+    return;
+  }
+
+  setLoadingState(`Buscando "${query}"...`);
+
+  try {
+    const response = await fetch(`${API_URL}/search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        top_k: 5,
+      }),
+    });
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(`HTTP ${response.status} ${detail}`);
+    }
+
+    const data = await response.json();
+    const count = Array.isArray(data.results) ? data.results.length : 0;
+
+    if (statusEl) {
+      statusEl.textContent = count
+        ? `Resultados para "${data.query}" — ${count} encontrados`
+        : `Sin resultados para "${data.query}"`;
+    }
+
+    renderResults(data, query);
+  } catch (error) {
+    console.error('[Zenith] Error en búsqueda:', error);
+
+    if (statusEl) {
+      statusEl.textContent = 'Error conectando con la API de Zenith.';
+    }
+
+    if (resultsEl) {
+      resultsEl.innerHTML = `
+        <div class="empty-state">
+          No se pudo completar la búsqueda. Revisa que la API esté corriendo en
+          <strong>${API_URL}</strong>.
+        </div>
+      `;
+    }
+  }
 }
 
 btn.addEventListener('click', () => {
   const t = input.value.trim();
-  if (!t) { input.focus(); return; }
+  if (!t) {
+    input.focus();
+    return;
+  }
   triggerSearch(t);
 });
 
-input.addEventListener('keydown', e => {
-  if (e.key === 'Enter')  { const t = input.value.trim(); if (t) triggerSearch(t); }
-  if (e.key === 'Escape') { input.blur(); }
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const t = input.value.trim();
+    if (t) triggerSearch(t);
+  }
+  if (e.key === 'Escape') {
+    input.blur();
+  }
 });
 
 window.addEventListener('load', () => {

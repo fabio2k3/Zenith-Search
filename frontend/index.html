@@ -84,6 +84,7 @@
 
   <main class="wrap">
     <h1 class="brand"><span>Z</span>enith</h1>
+
     <div class="search-wrap">
       <label for="q" class="sr-only">Buscar</label>
       <div class="search-box">
@@ -101,6 +102,11 @@
         </button>
       </div>
     </div>
+
+    <section class="results-panel" aria-live="polite">
+      <div id="status" class="status"></div>
+      <div id="results" class="results"></div>
+    </section>
   </main>
 
   <script src="app.js" defer></script>
