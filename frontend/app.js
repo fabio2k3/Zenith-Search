@@ -281,6 +281,44 @@ function renderPagination(page, hasMore) {
   }
 }
 
+/**
+ * Converts a raw filename like:
+ *   "0709.0025v1 - Borges Dilemma Fundamental Laws and Systems Biology.pdf_chunk_2.txt"
+ * into a clean human-readable title:
+ *   "Borges Dilemma Fundamental Laws and Systems Biology"
+ *
+ * Steps applied in order:
+ *   1. Strip _chunk_N.txt / .pdf_chunk_N.txt suffixes
+ *   2. Strip .txt / .pdf extensions
+ *   3. Strip leading arXiv-style codes + dash separator
+ *      e.g. "0709.0025v1 - " or "1234.5678 - "
+ *   4. Strip remaining leading/trailing dashes, underscores, spaces
+ *   5. Replace underscores with spaces, collapse multiple spaces
+ */
+function cleanTitle(raw) {
+  let t = String(raw || '').trim();
+
+  // 1. Remove chunk suffixes
+  t = t.replace(/\.pdf_chunk_\d+\.txt$/i, '');
+  t = t.replace(/_chunk_\d+\.txt$/i, '');
+
+  // 2. Remove file extensions
+  t = t.replace(/\.pdf$/i, '');
+  t = t.replace(/\.txt$/i, '');
+
+  // 3. Remove leading arXiv / numeric codes followed by " - "
+  //    Matches: "0709.0025v1 - ", "2301.12345v2 - ", "1234 - "
+  t = t.replace(/^[\d]+(?:\.\d+)?(?:v\d+)?\s*[-–]\s*/i, '');
+
+  // 4. Clean up edges
+  t = t.replace(/^[-_\s]+|[-_\s]+$/g, '');
+
+  // 5. Underscores → spaces, collapse whitespace
+  t = t.replace(/_/g, ' ').replace(/\s{2,}/g, ' ').trim();
+
+  return t || raw; // fallback to raw if result would be empty
+}
+
 function renderResults(payload, queryFallback) {
   const query = payload?.query || queryFallback || '';
   const results = Array.isArray(payload?.results) ? payload.results : [];
@@ -293,7 +331,8 @@ function renderResults(payload, queryFallback) {
   }
 
   resultsEl.innerHTML = results.map((r, idx) => {
-    const title = r.file_name || r.relative_path || `Documento ${idx + 1}`;
+    const rawTitle = r.file_name || r.relative_path || `Documento ${idx + 1}`;
+    const title = cleanTitle(rawTitle);
     const url = normalizePdfUrl(r.pdf_url || r.relative_path || '#');
 
     return `
