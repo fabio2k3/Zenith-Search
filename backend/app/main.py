@@ -1,5 +1,4 @@
 from pathlib import Path
-import difflib
 import re
 from urllib.parse import quote, unquote
 
@@ -29,6 +28,7 @@ if PDFS_DIR.exists():
 
 search_engine: HybridSearchEngine | None = None
 _CORRECTION_VOCAB: set[str] = set()
+_CORRECTION_VOCAB_LIST: list[str] = []   # sorted once at startup, reused on every search
 
 
 def _normalize_pdf_name(name: str) -> str:
@@ -171,36 +171,168 @@ def _build_correction_vocab(engine: HybridSearchEngine | None) -> set[str]:
     }
 
 
+# ── Spell-correction engine ────────────────────────────────────────────────
+#
+# Why OSA instead of difflib.SequenceMatcher?
+#   • SequenceMatcher measures longest common subsequences — great for diffs,
+#     poor for single-word typos.  Its ratio() doesn't map cleanly to "number
+#     of keystrokes wrong", so a fixed cutoff misbehaves for short words.
+#   • Optimal String Alignment (restricted Damerau–Levenshtein) counts
+#     insertions, deletions, substitutions AND adjacent transpositions as
+#     exactly 1 edit each.  That makes "netwrok" → 1 edit from "network",
+#     "retreval" → 1 edit from "retrieval", etc.
+# ──────────────────────────────────────────────────────────────────────────
+
+
+def _osa_distance(s1: str, s2: str) -> int:
+    """
+    Optimal String Alignment distance.
+    Like Levenshtein but also counts swapping two adjacent characters as 1 op.
+    O(len(s1) * len(s2)) time — fast enough for word-level corrections.
+    """
+    len1, len2 = len(s1), len(s2)
+    if s1 == s2:
+        return 0
+    if len1 == 0:
+        return len2
+    if len2 == 0:
+        return len1
+
+    # Two-row DP with transposition look-back
+    prev2 = list(range(len2 + 1))   # d[i-2]
+    prev1 = list(range(len2 + 1))   # d[i-1]  — initialised below
+    curr  = [0] * (len2 + 1)
+
+    prev1 = list(range(len2 + 1))
+
+    for i in range(1, len1 + 1):
+        curr[0] = i
+        for j in range(1, len2 + 1):
+            cost = 0 if s1[i - 1] == s2[j - 1] else 1
+            curr[j] = min(
+                prev1[j] + 1,           # deletion
+                curr[j - 1] + 1,        # insertion
+                prev1[j - 1] + cost,    # substitution
+            )
+            # Adjacent transposition (only valid from i≥2, j≥2)
+            if i > 1 and j > 1 and s1[i - 1] == s2[j - 2] and s1[i - 2] == s2[j - 1]:
+                curr[j] = min(curr[j], prev2[j - 2] + 1)
+
+        prev2, prev1, curr = prev1, curr, prev2  # rotate rows in-place
+
+    return prev1[len2]
+
+
+def _max_edit_distance(word_len: int) -> int:
+    """
+    Dynamic tolerance that scales with word length.
+
+    |word|   max edits   rationale
+    ──────   ─────────   ────────────────────────────────────────
+    3        0           3-char words: 1 edit = 33 % change → too risky
+    4        1           "lern" → "learn" OK; "lern" → "fern" blocked
+    5–7      1           comfortable for most short domain terms
+    8–11     2           "embeding" → "embedding", "retreval" → "retrieval"
+    12+      2           keep at 2; 3 edits on long words → false positives
+    """
+    if word_len <= 3:
+        return 0
+    if word_len <= 7:
+        return 1
+    return 2
+
+
+def _correct_word(token: str, vocab: set[str], vocab_list: list[str]) -> str:
+    """
+    Return the closest vocabulary match for *token*, or *token* unchanged.
+
+    Search strategy
+    ───────────────
+    1. Exact hit → done immediately.
+    2. Word too short (≤3 chars) → skip (max_dist=0 means no correction).
+    3. Pre-filter candidates by |len_candidate − len_token| ≤ max_dist.
+       This alone eliminates ~60–80 % of the vocabulary before any OSA call.
+    4. Pass 1 — same first character:
+         Covers the vast majority of real typos (dropped/doubled letters,
+         substitutions, transpositions in the middle).
+    5. Pass 2 — all length-filtered candidates (fallback):
+         Catches first-character substitutions, e.g. "cachine" → "machine".
+         Only runs when Pass 1 finds nothing.
+    6. Tiebreaker (lexicographic tuple, lower = better):
+         (distance, len_diff, first_char_differs)
+         Prefers the closest word; on ties, prefers same length;
+         on further ties, prefers same first character.
+    """
+    if token in vocab:
+        return token
+
+    n = len(token)
+    max_dist = _max_edit_distance(n)
+    if max_dist == 0:
+        return token
+
+    # ── Pre-filter by length ────────────────────────────────────────────
+    candidates = [w for w in vocab_list if abs(len(w) - n) <= max_dist]
+    if not candidates:
+        return token
+
+    best_word = token
+    # score tuple: (distance, length_diff, first_char_differs)  — lower = better
+    best_score: tuple = (max_dist + 1, 2, 2)
+
+    def _score(w: str, dist: int) -> tuple:
+        return (dist, abs(len(w) - n), 0 if w[0] == token[0] else 1)
+
+    # ── Pass 1: same first character ────────────────────────────────────
+    same_first = [w for w in candidates if w[0] == token[0]]
+    for w in same_first:
+        d = _osa_distance(token, w)
+        if d <= max_dist:
+            sc = _score(w, d)
+            if sc < best_score:
+                best_score = sc
+                best_word = w
+
+    # ── Pass 2: different first character (only if Pass 1 failed) ───────
+    if best_word is token:
+        for w in candidates:
+            if w[0] == token[0]:
+                continue  # already checked
+            d = _osa_distance(token, w)
+            if d <= max_dist:
+                sc = _score(w, d)
+                if sc < best_score:
+                    best_score = sc
+                    best_word = w
+
+    return best_word
+
+
 def _suggest_query(query: str, vocab: set[str]) -> str | None:
+    """
+    Return a corrected version of *query* if any word was changed, else None.
+    Uses the pre-sorted global _CORRECTION_VOCAB_LIST to avoid re-sorting
+    on every request.
+    """
     raw = str(query or "").strip()
     if not raw or not vocab:
         return None
 
+    # Use the globally cached sorted list; fall back to sorting inline
+    # (the fallback only happens before startup completes, never in production).
+    vocab_list = _CORRECTION_VOCAB_LIST or sorted(vocab)
+
     parts = re.split(r"(\W+)", raw)
     corrected_parts: list[str] = []
     changed = False
-    vocab_list = sorted(vocab)
 
     for part in parts:
         if re.fullmatch(r"[A-Za-zÀ-ÿ]{3,}", part):
             token = part.lower()
-            candidate = token
-
-            if token not in vocab:
-                candidates = [w for w in vocab_list if w and w[0] == token[0]]
-                search_space = candidates if candidates else vocab_list
-
-                matches = difflib.get_close_matches(token, search_space, n=1, cutoff=0.84)
-                if not matches:
-                    matches = difflib.get_close_matches(token, search_space, n=1, cutoff=0.78)
-
-                if matches:
-                    candidate = matches[0]
-
-            if candidate != token:
+            corrected = _correct_word(token, vocab, vocab_list)
+            if corrected != token:
                 changed = True
-
-            corrected_parts.append(candidate)
+            corrected_parts.append(corrected)
         else:
             corrected_parts.append(part)
 
@@ -213,9 +345,11 @@ def _suggest_query(query: str, vocab: set[str]) -> str | None:
 
 @app.on_event("startup")
 def startup_event():
-    global search_engine, _CORRECTION_VOCAB
+    global search_engine, _CORRECTION_VOCAB, _CORRECTION_VOCAB_LIST
     search_engine = HybridSearchEngine()
     _CORRECTION_VOCAB = _build_correction_vocab(search_engine)
+    # Sort once here; _suggest_query reuses this list on every request
+    _CORRECTION_VOCAB_LIST = sorted(_CORRECTION_VOCAB)
 
 
 @app.get("/health")

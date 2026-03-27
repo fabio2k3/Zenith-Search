@@ -234,7 +234,7 @@ function renderSuggestion(suggestion, originalQuery) {
 
   suggestionEl.hidden = false;
   suggestionEl.innerHTML = `
-    ¿Quisiste decir:
+    ¿Did you mean:
     <button type="button" class="suggestion-btn">${escapeHtml(cleanSuggestion)}</button>?
   `;
 
@@ -260,9 +260,9 @@ function renderPagination(page, hasMore) {
 
   paginationEl.hidden = false;
   paginationEl.innerHTML = `
-    ${hasPrev ? '<button type="button" class="page-btn" data-dir="prev">Anterior</button>' : ''}
+    ${hasPrev ? '<button type="button" class="page-btn" data-dir="prev">Former</button>' : ''}
     <span class="pagination-info">Página ${page}</span>
-    ${hasMore ? '<button type="button" class="page-btn" data-dir="next">Siguiente</button>' : ''}
+    ${hasMore ? '<button type="button" class="page-btn" data-dir="next">Following</button>' : ''}
   `;
 
   const prevBtn = paginationEl.querySelector('[data-dir="prev"]');
@@ -288,7 +288,7 @@ function renderResults(payload, queryFallback) {
   if (!resultsEl) return;
 
   if (!results.length) {
-    resultsEl.innerHTML = `<div class="empty-state">No se encontraron resultados para <strong>${escapeHtml(query)}</strong>.</div>`;
+    resultsEl.innerHTML = `<div class="empty-state">No results found for <strong>${escapeHtml(query)}</strong>.</div>`;
     return;
   }
 
