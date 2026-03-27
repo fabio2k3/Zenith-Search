@@ -9,10 +9,8 @@
 </head>
 <body>
 
-  <!-- Partículas canvas -->
   <canvas id="canvas"></canvas>
 
-  <!-- Siluetas de Sherlock -->
   <div class="silhouette silhouette-l" aria-hidden="true">
     <svg width="55" height="140" viewBox="0 0 55 140" fill="currentColor">
       <ellipse cx="27" cy="22" rx="9" ry="11"/>
@@ -38,15 +36,12 @@
     </svg>
   </div>
 
-  <!-- Niebla -->
   <div class="fog fog-a"></div>
   <div class="fog fog-b"></div>
   <div class="fog fog-c"></div>
 
-  <!-- Suelo -->
   <div class="floor"></div>
 
-  <!-- Farolas -->
   <div class="lamp lamp-l" aria-hidden="true">
     <div class="lamp-head"><div class="lamp-bulb"></div><div class="lamp-beam"></div></div>
     <div class="lamp-post"></div>
@@ -56,7 +51,6 @@
     <div class="lamp-post"></div>
   </div>
 
-  <!-- Esquinas decorativas -->
   <svg class="corner c-tl" viewBox="0 0 100 100" fill="none" aria-hidden="true">
     <path d="M8 8 L55 8 M8 8 L8 55" stroke="currentColor" stroke-width="1.2"/>
     <circle cx="8" cy="8" r="2.5" fill="currentColor"/>
@@ -105,7 +99,9 @@
 
     <section class="results-panel" aria-live="polite">
       <div id="status" class="status"></div>
+      <div id="suggestion" class="suggestion" hidden></div>
       <div id="results" class="results"></div>
+      <div id="pagination" class="pagination" hidden></div>
     </section>
   </main>
 

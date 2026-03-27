@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════
 
 const API_URL = 'http://127.0.0.1:8000';
+const PAGE_SIZE = 5;
 
 // ── Canvas ──────────────────────────────────────
 const canvas = document.getElementById('canvas');
@@ -183,6 +184,12 @@ const input = document.getElementById('q');
 const btn = document.getElementById('searchBtn');
 const resultsEl = document.getElementById('results');
 const statusEl = document.getElementById('status');
+const suggestionEl = document.getElementById('suggestion');
+const paginationEl = document.getElementById('pagination');
+
+let currentQuery = '';
+let currentPage = 1;
+let searchSeq = 0;
 
 function pulseBrand() {
   const brand = document.querySelector('.brand');
@@ -197,12 +204,81 @@ function pulseBrand() {
 function setLoadingState(message) {
   if (statusEl) statusEl.textContent = message;
   if (resultsEl) resultsEl.innerHTML = '';
+  if (suggestionEl) {
+    suggestionEl.hidden = true;
+    suggestionEl.innerHTML = '';
+  }
+  if (paginationEl) {
+    paginationEl.hidden = true;
+    paginationEl.innerHTML = '';
+  }
 }
 
 function normalizePdfUrl(url) {
   if (!url) return '#';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
   return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+function renderSuggestion(suggestion, originalQuery) {
+  if (!suggestionEl) return;
+
+  const cleanSuggestion = String(suggestion || '').trim();
+  const cleanOriginal = String(originalQuery || '').trim();
+
+  if (!cleanSuggestion || cleanSuggestion.toLowerCase() === cleanOriginal.toLowerCase()) {
+    suggestionEl.hidden = true;
+    suggestionEl.innerHTML = '';
+    return;
+  }
+
+  suggestionEl.hidden = false;
+  suggestionEl.innerHTML = `
+    ¿Quisiste decir:
+    <button type="button" class="suggestion-btn">${escapeHtml(cleanSuggestion)}</button>?
+  `;
+
+  const suggestionBtn = suggestionEl.querySelector('button');
+  if (suggestionBtn) {
+    suggestionBtn.addEventListener('click', () => {
+      input.value = cleanSuggestion;
+      triggerSearch(cleanSuggestion, 1);
+    });
+  }
+}
+
+function renderPagination(page, hasMore) {
+  if (!paginationEl) return;
+
+  const hasPrev = page > 1;
+
+  if (!hasPrev && !hasMore) {
+    paginationEl.hidden = true;
+    paginationEl.innerHTML = '';
+    return;
+  }
+
+  paginationEl.hidden = false;
+  paginationEl.innerHTML = `
+    ${hasPrev ? '<button type="button" class="page-btn" data-dir="prev">Anterior</button>' : ''}
+    <span class="pagination-info">Página ${page}</span>
+    ${hasMore ? '<button type="button" class="page-btn" data-dir="next">Siguiente</button>' : ''}
+  `;
+
+  const prevBtn = paginationEl.querySelector('[data-dir="prev"]');
+  const nextBtn = paginationEl.querySelector('[data-dir="next"]');
+
+  if (prevBtn) {
+    prevBtn.addEventListener('click', () => {
+      triggerSearch(currentQuery, page - 1);
+    });
+  }
+
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+      triggerSearch(currentQuery, page + 1);
+    });
+  }
 }
 
 function renderResults(payload, queryFallback) {
@@ -230,7 +306,7 @@ function renderResults(payload, queryFallback) {
   }).join('');
 }
 
-async function triggerSearch(term) {
+async function triggerSearch(term, page = 1) {
   btn.classList.add('rip', 'glow');
   setTimeout(() => btn.classList.remove('rip'), 700);
   setTimeout(() => btn.classList.remove('glow'), 900);
@@ -243,6 +319,10 @@ async function triggerSearch(term) {
     return;
   }
 
+  currentQuery = query;
+  currentPage = page;
+  const requestId = ++searchSeq;
+
   setLoadingState(`Buscando "${query}"...`);
 
   try {
@@ -253,7 +333,8 @@ async function triggerSearch(term) {
       },
       body: JSON.stringify({
         query,
-        top_k: 5,
+        page,
+        page_size: PAGE_SIZE,
       }),
     });
 
@@ -263,15 +344,18 @@ async function triggerSearch(term) {
     }
 
     const data = await response.json();
-    const count = Array.isArray(data.results) ? data.results.length : 0;
+
+    if (requestId !== searchSeq) return;
 
     if (statusEl) {
-      statusEl.textContent = count
-        ? `Resultados para "${data.query}" — ${count} encontrados`
+      statusEl.textContent = data.results?.length
+        ? `Resultados para "${data.query}" — página ${data.page}`
         : `Sin resultados para "${data.query}"`;
     }
 
+    renderSuggestion(data.did_you_mean, query);
     renderResults(data, query);
+    renderPagination(data.page, !!data.has_more);
   } catch (error) {
     console.error('[Zenith] Error en búsqueda:', error);
 
@@ -287,6 +371,16 @@ async function triggerSearch(term) {
         </div>
       `;
     }
+
+    if (suggestionEl) {
+      suggestionEl.hidden = true;
+      suggestionEl.innerHTML = '';
+    }
+
+    if (paginationEl) {
+      paginationEl.hidden = true;
+      paginationEl.innerHTML = '';
+    }
   }
 }
 
@@ -296,13 +390,13 @@ btn.addEventListener('click', () => {
     input.focus();
     return;
   }
-  triggerSearch(t);
+  triggerSearch(t, 1);
 });
 
 input.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     const t = input.value.trim();
-    if (t) triggerSearch(t);
+    if (t) triggerSearch(t, 1);
   }
   if (e.key === 'Escape') {
     input.blur();
